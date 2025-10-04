@@ -1,0 +1,1 @@
+# activities/__init__.py
