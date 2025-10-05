@@ -2,7 +2,8 @@
 from django.contrib import admin
 from .models import (
     Campaign, EmailTemplate, EmailCampaign, LeadScore,
-    MarketingList, MarketingListMember, MarketingEvent, MarketingAnalytics
+    MarketingList, MarketingListContact, EmailActivity,
+    MarketingAutomation, MarketingAutomationExecution
 )
 
 @admin.register(Campaign)
@@ -154,15 +155,16 @@ class MarketingListAdmin(admin.ModelAdmin):
         })
     )
 
-@admin.register(MarketingListMember)
-class MarketingListMemberAdmin(admin.ModelAdmin):
-    list_display = ['contact', 'list', 'subscribed_at', 'unsubscribed_at', 'is_active']
+@admin.register(MarketingListContact)
+class MarketingListContactAdmin(admin.ModelAdmin):
+    list_display = ['contact', 'marketing_list', 'subscribed_at', 'unsubscribed_at', 'is_active']
     list_filter = ['is_active', 'subscribed_at', 'unsubscribed_at']
-    search_fields = ['contact__first_name', 'contact__last_name', 'contact__email', 'list__name']
+    search_fields = ['contact__first_name', 'contact__last_name', 'contact__email', 'marketing_list__name']
     readonly_fields = ['subscribed_at', 'created_at', 'updated_at']
+    raw_id_fields = ['marketing_list', 'contact']
     fieldsets = (
         ('Membership', {
-            'fields': ('list', 'contact')
+            'fields': ('marketing_list', 'contact')
         }),
         ('Timeline', {
             'fields': ('subscribed_at', 'unsubscribed_at')
@@ -176,58 +178,25 @@ class MarketingListMemberAdmin(admin.ModelAdmin):
         })
     )
 
-@admin.register(MarketingEvent)
-class MarketingEventAdmin(admin.ModelAdmin):
-    list_display = ['event_name', 'event_type', 'contact', 'event_date', 'created_by']
-    list_filter = ['event_type', 'event_date', 'created_at']
-    search_fields = ['event_name', 'description', 'contact__first_name', 'contact__last_name', 'contact__email']
+@admin.register(EmailActivity)
+class EmailActivityAdmin(admin.ModelAdmin):
+    list_display = ['email_campaign', 'contact', 'activity_type', 'activity_date']
+    list_filter = ['activity_type', 'activity_date', 'created_at']
+    search_fields = ['contact__first_name', 'contact__last_name', 'contact__email', 'email_campaign__name']
     readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Event Information', {
-            'fields': ('event_type', 'event_name', 'description', 'event_date')
-        }),
-        ('Related Objects', {
-            'fields': ('contact', 'campaign', 'email_campaign')
-        }),
-        ('Event Data', {
-            'fields': ('event_data',)
-        }),
-        ('Assignment', {
-            'fields': ('created_by',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+    raw_id_fields = ['email_campaign', 'contact']
 
-@admin.register(MarketingAnalytics)
-class MarketingAnalyticsAdmin(admin.ModelAdmin):
-    list_display = ['name', 'start_date', 'end_date', 'total_campaigns', 'active_campaigns', 'is_active']
-    list_filter = ['is_active', 'start_date', 'end_date', 'created_at']
+@admin.register(MarketingAutomation)
+class MarketingAutomationAdmin(admin.ModelAdmin):
+    list_display = ['name', 'trigger_type', 'is_active', 'created_at']
+    list_filter = ['trigger_type', 'is_active', 'created_at']
     search_fields = ['name', 'description']
     readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'description', 'start_date', 'end_date')
-        }),
-        ('Campaign Metrics', {
-            'fields': ('total_campaigns', 'active_campaigns')
-        }),
-        ('Email Metrics', {
-            'fields': ('total_emails_sent', 'total_emails_delivered', 'total_emails_opened', 'total_clicks')
-        }),
-        ('Conversion Metrics', {
-            'fields': ('total_conversions', 'total_unsubscribes', 'total_bounces')
-        }),
-        ('Rate Metrics', {
-            'fields': ('overall_open_rate', 'overall_click_rate', 'overall_bounce_rate', 'overall_conversion_rate')
-        }),
-        ('Additional', {
-            'fields': ('metadata', 'is_active')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+
+@admin.register(MarketingAutomationExecution)
+class MarketingAutomationExecutionAdmin(admin.ModelAdmin):
+    list_display = ['automation', 'contact', 'status', 'executed_at']
+    list_filter = ['status', 'executed_at', 'created_at']
+    search_fields = ['automation__name', 'contact__first_name', 'contact__last_name']
+    readonly_fields = ['executed_at', 'created_at', 'updated_at']
+    raw_id_fields = ['automation', 'contact']
