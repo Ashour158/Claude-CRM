@@ -3,7 +3,6 @@ Minimal pytest configuration for smoke tests.
 This version doesn't import heavy dependencies at module level.
 """
 import os
-import sys
 
 # Ensure Django settings are configured before any Django imports
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
@@ -49,7 +48,7 @@ def pytest_configure(config):
         "smoke: mark test as smoke test",
         "regression: mark test as regression test",
     ]
-    
+
     for marker in markers:
         config.addinivalue_line("markers", marker)
 
@@ -68,11 +67,11 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.smoke)
         elif 'test_admin' in str(item.fspath):
             item.add_marker(pytest.mark.smoke)
-        
+
         # Add slow marker for tests with 'slow' in name
         if 'slow' in item.name:
             item.add_marker(pytest.mark.slow)
-        
+
         # Add integration marker for tests with 'integration' in name
         if 'integration' in item.name:
             item.add_marker(pytest.mark.integration)

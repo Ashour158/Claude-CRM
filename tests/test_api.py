@@ -1,16 +1,15 @@
 # tests/test_api.py
 # Comprehensive API testing
 
-import json
-from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from activities.models import Activity, Task
 from core.models import Company, UserCompanyAccess
 from crm.models import Account, Contact, Lead
-from activities.models import Activity, Task
 from deals.models import Deal
 from products.models import Product
 
@@ -18,7 +17,7 @@ User = get_user_model()
 
 class TestAuthenticationAPI(APITestCase):
     """Test authentication API endpoints"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -33,7 +32,7 @@ class TestAuthenticationAPI(APITestCase):
             company=self.company,
             role="admin"
         )
-    
+
     def test_user_registration(self):
         """Test user registration endpoint"""
         url = reverse('core:register')
@@ -48,7 +47,7 @@ class TestAuthenticationAPI(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(email='newuser@example.com').exists())
-    
+
     def test_user_login(self):
         """Test user login endpoint"""
         url = reverse('core:token_obtain_pair')
@@ -62,7 +61,7 @@ class TestAuthenticationAPI(APITestCase):
         self.assertIn('refresh', response.data)
         self.assertIn('user', response.data)
         self.assertIn('company', response.data)
-    
+
     def test_token_refresh(self):
         """Test token refresh endpoint"""
         refresh = RefreshToken.for_user(self.user)
@@ -71,7 +70,7 @@ class TestAuthenticationAPI(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('access', response.data)
-    
+
     def test_user_profile(self):
         """Test user profile endpoint"""
         self.client.force_authenticate(user=self.user)
@@ -79,7 +78,7 @@ class TestAuthenticationAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], self.user.email)
-    
+
     def test_health_check(self):
         """Test health check endpoint"""
         url = reverse('core:health_check')
@@ -89,7 +88,7 @@ class TestAuthenticationAPI(APITestCase):
 
 class TestCRMAPI(APITestCase):
     """Test CRM API endpoints"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -105,7 +104,7 @@ class TestCRMAPI(APITestCase):
             role="admin"
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_account_list(self):
         """Test account list endpoint"""
         Account.objects.create(
@@ -118,7 +117,7 @@ class TestCRMAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_account_create(self):
         """Test account creation endpoint"""
         url = reverse('crm:account-list')
@@ -132,7 +131,7 @@ class TestCRMAPI(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], 'New Account')
-    
+
     def test_contact_list(self):
         """Test contact list endpoint"""
         account = Account.objects.create(
@@ -151,7 +150,7 @@ class TestCRMAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_contact_create(self):
         """Test contact creation endpoint"""
         account = Account.objects.create(
@@ -170,7 +169,7 @@ class TestCRMAPI(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['first_name'], 'Jane')
-    
+
     def test_lead_list(self):
         """Test lead list endpoint"""
         Lead.objects.create(
@@ -187,7 +186,7 @@ class TestCRMAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_lead_create(self):
         """Test lead creation endpoint"""
         url = reverse('crm:lead-list')
@@ -206,7 +205,7 @@ class TestCRMAPI(APITestCase):
 
 class TestActivityAPI(APITestCase):
     """Test activity API endpoints"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -222,7 +221,7 @@ class TestActivityAPI(APITestCase):
             role="admin"
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_activity_list(self):
         """Test activity list endpoint"""
         Activity.objects.create(
@@ -236,7 +235,7 @@ class TestActivityAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_activity_create(self):
         """Test activity creation endpoint"""
         url = reverse('activities:activity-list')
@@ -251,7 +250,7 @@ class TestActivityAPI(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['activity_type'], 'meeting')
-    
+
     def test_task_list(self):
         """Test task list endpoint"""
         Task.objects.create(
@@ -266,7 +265,7 @@ class TestActivityAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_task_create(self):
         """Test task creation endpoint"""
         url = reverse('activities:task-list')
@@ -283,7 +282,7 @@ class TestActivityAPI(APITestCase):
 
 class TestDealAPI(APITestCase):
     """Test deal API endpoints"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -309,7 +308,7 @@ class TestDealAPI(APITestCase):
             account=self.account
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_deal_list(self):
         """Test deal list endpoint"""
         Deal.objects.create(
@@ -325,7 +324,7 @@ class TestDealAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_deal_create(self):
         """Test deal creation endpoint"""
         url = reverse('deals:deal-list')
@@ -341,7 +340,7 @@ class TestDealAPI(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['name'], 'New Deal')
-    
+
     def test_deal_pipeline(self):
         """Test deal pipeline endpoint"""
         Deal.objects.create(
@@ -369,7 +368,7 @@ class TestDealAPI(APITestCase):
 
 class TestProductAPI(APITestCase):
     """Test product API endpoints"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -385,7 +384,7 @@ class TestProductAPI(APITestCase):
             role="admin"
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_product_list(self):
         """Test product list endpoint"""
         Product.objects.create(
@@ -399,7 +398,7 @@ class TestProductAPI(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_product_create(self):
         """Test product creation endpoint"""
         url = reverse('products:product-list')
@@ -416,7 +415,7 @@ class TestProductAPI(APITestCase):
 
 class TestAPIFiltering(APITestCase):
     """Test API filtering and search functionality"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -432,7 +431,7 @@ class TestAPIFiltering(APITestCase):
             role="admin"
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_account_filtering(self):
         """Test account filtering by type and industry"""
         Account.objects.create(
@@ -449,18 +448,18 @@ class TestAPIFiltering(APITestCase):
             industry="Healthcare",
             owner=self.user
         )
-        
+
         # Filter by type
         url = reverse('crm:account-list')
         response = self.client.get(url, {'type': 'customer'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-        
+
         # Filter by industry
         response = self.client.get(url, {'industry': 'Technology'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-    
+
     def test_contact_search(self):
         """Test contact search functionality"""
         Contact.objects.create(
@@ -477,13 +476,13 @@ class TestAPIFiltering(APITestCase):
             email="jane@example.com",
             owner=self.user
         )
-        
+
         # Search by name
         url = reverse('crm:contact-list')
         response = self.client.get(url, {'search': 'John'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
-        
+
         # Search by email
         response = self.client.get(url, {'search': 'jane@example.com'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -491,7 +490,7 @@ class TestAPIFiltering(APITestCase):
 
 class TestAPIPagination(APITestCase):
     """Test API pagination functionality"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -507,7 +506,7 @@ class TestAPIPagination(APITestCase):
             role="admin"
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_account_pagination(self):
         """Test account pagination"""
         # Create multiple accounts
@@ -518,7 +517,7 @@ class TestAPIPagination(APITestCase):
                 type="customer",
                 owner=self.user
             )
-        
+
         url = reverse('crm:account-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -526,7 +525,7 @@ class TestAPIPagination(APITestCase):
         self.assertIn('next', response.data)
         self.assertIn('previous', response.data)
         self.assertEqual(len(response.data['results']), 20)  # Default page size
-    
+
     def test_contact_pagination(self):
         """Test contact pagination"""
         # Create multiple contacts
@@ -538,7 +537,7 @@ class TestAPIPagination(APITestCase):
                 email=f"contact{i}@example.com",
                 owner=self.user
             )
-        
+
         url = reverse('crm:contact-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -549,7 +548,7 @@ class TestAPIPagination(APITestCase):
 
 class TestAPIErrorHandling(APITestCase):
     """Test API error handling and validation"""
-    
+
     def setUp(self):
         self.client = APIClient()
         self.user = User.objects.create_user(
@@ -565,7 +564,7 @@ class TestAPIErrorHandling(APITestCase):
             role="admin"
         )
         self.client.force_authenticate(user=self.user)
-    
+
     def test_invalid_data_validation(self):
         """Test API validation with invalid data"""
         url = reverse('crm:account-list')
@@ -577,14 +576,14 @@ class TestAPIErrorHandling(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('name', response.data)
-    
+
     def test_unauthorized_access(self):
         """Test unauthorized access to protected endpoints"""
         self.client.logout()
         url = reverse('crm:account-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-    
+
     def test_not_found_error(self):
         """Test 404 error for non-existent resources"""
         url = reverse('crm:account-detail', kwargs={'pk': '99999999-9999-9999-9999-999999999999'})

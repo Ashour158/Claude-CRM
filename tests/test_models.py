@@ -1,22 +1,21 @@
 # tests/test_models.py
 # Comprehensive model testing
 
-import pytest
-from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.test import TestCase
+
+from activities.models import Activity, Task
 from core.models import Company, UserCompanyAccess
 from crm.models import Account, Contact, Lead
-from activities.models import Activity, Task
 from deals.models import Deal
 from products.models import Product
-import uuid
 
 User = get_user_model()
 
 class TestCoreModels(TestCase):
     """Test core authentication and multi-tenant models"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(
             name="Test Company",
@@ -32,7 +31,7 @@ class TestCoreModels(TestCase):
             company=self.company,
             role="admin"
         )
-    
+
     def test_user_creation(self):
         """Test user model creation and validation"""
         user = User.objects.create_user(
@@ -44,7 +43,7 @@ class TestCoreModels(TestCase):
         self.assertEqual(user.get_full_name(), "New User")
         self.assertTrue(user.is_active)
         self.assertFalse(user.is_staff)
-    
+
     def test_company_creation(self):
         """Test company model creation"""
         company = Company.objects.create(
@@ -53,7 +52,7 @@ class TestCoreModels(TestCase):
         )
         self.assertEqual(company.name, "New Company")
         self.assertTrue(company.is_active)
-    
+
     def test_user_company_access(self):
         """Test user company access relationship"""
         self.assertEqual(self.user_access.user, self.user)
@@ -63,7 +62,7 @@ class TestCoreModels(TestCase):
 
 class TestCRMModels(TestCase):
     """Test CRM core models"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
         self.user = User.objects.create_user(
@@ -76,7 +75,7 @@ class TestCRMModels(TestCase):
             company=self.company,
             role="admin"
         )
-    
+
     def test_account_creation(self):
         """Test account model creation and validation"""
         account = Account.objects.create(
@@ -90,7 +89,7 @@ class TestCRMModels(TestCase):
         self.assertEqual(account.type, "customer")
         self.assertEqual(account.owner, self.user)
         self.assertTrue(account.is_active)
-    
+
     def test_contact_creation(self):
         """Test contact model creation"""
         account = Account.objects.create(
@@ -108,7 +107,7 @@ class TestCRMModels(TestCase):
         self.assertEqual(contact.full_name, "John Doe")
         self.assertEqual(contact.account, account)
         self.assertTrue(contact.is_active)
-    
+
     def test_lead_creation(self):
         """Test lead model creation and scoring"""
         lead = Lead.objects.create(
@@ -124,7 +123,7 @@ class TestCRMModels(TestCase):
         self.assertEqual(lead.full_name, "Jane Smith")
         self.assertEqual(lead.rating, "hot")
         self.assertEqual(lead.status, "new")
-        
+
         # Test lead scoring
         score = lead.calculate_lead_score()
         self.assertGreaterEqual(score, 0)
@@ -132,7 +131,7 @@ class TestCRMModels(TestCase):
 
 class TestActivityModels(TestCase):
     """Test activity and task models"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
         self.user = User.objects.create_user(
@@ -145,7 +144,7 @@ class TestActivityModels(TestCase):
             company=self.company,
             role="admin"
         )
-    
+
     def test_activity_creation(self):
         """Test activity model creation"""
         activity = Activity.objects.create(
@@ -160,7 +159,7 @@ class TestActivityModels(TestCase):
         self.assertEqual(activity.subject, "Test Call")
         self.assertEqual(activity.assigned_to, self.user)
         self.assertEqual(activity.status, "planned")
-    
+
     def test_task_creation(self):
         """Test task model creation"""
         task = Task.objects.create(
@@ -178,7 +177,7 @@ class TestActivityModels(TestCase):
 
 class TestDealModels(TestCase):
     """Test deal and pipeline models"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
         self.user = User.objects.create_user(
@@ -201,7 +200,7 @@ class TestDealModels(TestCase):
             last_name="Doe",
             account=self.account
         )
-    
+
     def test_deal_creation(self):
         """Test deal model creation"""
         deal = Deal.objects.create(
@@ -220,10 +219,10 @@ class TestDealModels(TestCase):
 
 class TestProductModels(TestCase):
     """Test product and pricing models"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
-    
+
     def test_product_creation(self):
         """Test product model creation"""
         product = Product.objects.create(
@@ -241,7 +240,7 @@ class TestProductModels(TestCase):
 
 class TestModelValidation(TestCase):
     """Test model validation and constraints"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
         self.user = User.objects.create_user(
@@ -249,7 +248,7 @@ class TestModelValidation(TestCase):
             first_name="Test",
             last_name="User"
         )
-    
+
     def test_email_validation(self):
         """Test email field validation"""
         with self.assertRaises(ValidationError):
@@ -260,13 +259,13 @@ class TestModelValidation(TestCase):
                 email="invalid-email"
             )
             contact.full_clean()
-    
+
     def test_required_fields(self):
         """Test required field validation"""
         with self.assertRaises(ValidationError):
             account = Account(company=self.company)
             account.full_clean()
-    
+
     def test_unique_constraints(self):
         """Test unique field constraints"""
         # Create first user
@@ -275,7 +274,7 @@ class TestModelValidation(TestCase):
             first_name="First",
             last_name="User"
         )
-        
+
         # Try to create second user with same email
         with self.assertRaises(Exception):
             User.objects.create_user(
@@ -286,7 +285,7 @@ class TestModelValidation(TestCase):
 
 class TestModelMethods(TestCase):
     """Test model methods and properties"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
         self.user = User.objects.create_user(
@@ -299,7 +298,7 @@ class TestModelMethods(TestCase):
             company=self.company,
             role="admin"
         )
-    
+
     def test_account_methods(self):
         """Test account model methods"""
         account = Account.objects.create(
@@ -311,13 +310,13 @@ class TestModelMethods(TestCase):
             billing_postal_code="12345",
             billing_country="US"
         )
-        
+
         # Test get_full_address method
         address = account.get_full_address('billing')
         self.assertIn("123 Main St", address)
         self.assertIn("Test City", address)
         self.assertIn("12345", address)
-    
+
     def test_contact_methods(self):
         """Test contact model methods"""
         account = Account.objects.create(
@@ -335,12 +334,12 @@ class TestModelMethods(TestCase):
             mailing_postal_code="54321",
             mailing_country="US"
         )
-        
+
         # Test get_full_address method
         address = contact.get_full_address('mailing')
         self.assertIn("456 Oak St", address)
         self.assertIn("Contact City", address)
-    
+
     def test_lead_methods(self):
         """Test lead model methods"""
         lead = Lead.objects.create(
@@ -350,10 +349,10 @@ class TestModelMethods(TestCase):
             company_name="Lead Company",
             rating="hot"
         )
-        
+
         # Test is_hot property
         self.assertTrue(lead.is_hot)
-        
+
         # Test calculate_lead_score method
         score = lead.calculate_lead_score()
         self.assertGreaterEqual(score, 0)
@@ -361,7 +360,7 @@ class TestModelMethods(TestCase):
 
 class TestModelRelationships(TestCase):
     """Test model relationships and foreign keys"""
-    
+
     def setUp(self):
         self.company = Company.objects.create(name="Test Company")
         self.user = User.objects.create_user(
@@ -374,7 +373,7 @@ class TestModelRelationships(TestCase):
             company=self.company,
             role="admin"
         )
-    
+
     def test_account_contact_relationship(self):
         """Test account-contact relationship"""
         account = Account.objects.create(
@@ -387,13 +386,13 @@ class TestModelRelationships(TestCase):
             last_name="Doe",
             account=account
         )
-        
+
         # Test forward relationship
         self.assertEqual(contact.account, account)
-        
+
         # Test reverse relationship
         self.assertIn(contact, account.contacts.all())
-    
+
     def test_contact_activities_relationship(self):
         """Test contact-activities relationship"""
         account = Account.objects.create(
@@ -406,7 +405,7 @@ class TestModelRelationships(TestCase):
             last_name="Doe",
             account=account
         )
-        
+
         activity = Activity.objects.create(
             company=self.company,
             activity_type="call",
@@ -414,6 +413,6 @@ class TestModelRelationships(TestCase):
             activity_date="2024-01-01 10:00:00",
             content_object=contact
         )
-        
+
         # Test generic foreign key relationship
         self.assertEqual(activity.content_object, contact)
