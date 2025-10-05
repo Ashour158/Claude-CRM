@@ -1,20 +1,19 @@
 # vendors/models.py
+# Vendor and supplier management models
+
 from django.db import models
-from django.contrib.auth import get_user_model
-from core.models import CompanyIsolatedModel
+from django.core.validators import EmailValidator
+from core.models import CompanyIsolatedModel, User
 import uuid
 
-User = get_user_model()
-
 class Vendor(CompanyIsolatedModel):
-    """
-    Vendor/Supplier management
-    """
+    """Vendor/Supplier model"""
+    
     VENDOR_TYPES = [
         ('supplier', 'Supplier'),
         ('service_provider', 'Service Provider'),
-        ('contractor', 'Contractor'),
         ('consultant', 'Consultant'),
+        ('partner', 'Partner'),
         ('other', 'Other'),
     ]
     
@@ -26,76 +25,91 @@ class Vendor(CompanyIsolatedModel):
     ]
     
     # Basic Information
-    name = models.CharField(max_length=255, help_text="Vendor name")
+    name = models.CharField(max_length=255)
+    legal_name = models.CharField(max_length=255, blank=True)
     vendor_code = models.CharField(
-        max_length=50,
+        max_length=100,
         unique=True,
-        help_text="Unique vendor code"
+        help_text="Unique vendor identifier"
     )
+    website = models.URLField(blank=True)
+    
+    # Classification
     vendor_type = models.CharField(
-        max_length=20,
+        max_length=50,
         choices=VENDOR_TYPES,
         default='supplier'
     )
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='active'
-    )
+    industry = models.CharField(max_length=100, blank=True)
+    category = models.CharField(max_length=100, blank=True)
     
     # Contact Information
-    primary_contact_name = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Primary contact person name"
-    )
-    primary_contact_email = models.EmailField(
-        blank=True,
-        help_text="Primary contact email"
-    )
-    primary_contact_phone = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="Primary contact phone"
-    )
+    primary_contact_name = models.CharField(max_length=255, blank=True)
+    primary_contact_email = models.EmailField(blank=True, validators=[EmailValidator()])
+    primary_contact_phone = models.CharField(max_length=50, blank=True)
+    primary_contact_title = models.CharField(max_length=100, blank=True)
     
     # Business Information
-    business_registration_number = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Business registration number"
+    tax_id = models.CharField(max_length=100, blank=True)
+    registration_number = models.CharField(max_length=100, blank=True)
+    annual_revenue = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True
     )
-    tax_id = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Tax ID/VAT number"
-    )
-    website = models.URLField(blank=True, help_text="Vendor website")
+    employee_count = models.IntegerField(null=True, blank=True)
+    established_year = models.IntegerField(null=True, blank=True)
     
     # Address Information
-    billing_address = models.TextField(blank=True, help_text="Billing address")
-    shipping_address = models.TextField(blank=True, help_text="Shipping address")
-    city = models.CharField(max_length=100, blank=True)
-    state = models.CharField(max_length=100, blank=True)
-    postal_code = models.CharField(max_length=20, blank=True)
-    country = models.CharField(max_length=100, blank=True)
+    billing_address_line1 = models.CharField(max_length=255, blank=True)
+    billing_address_line2 = models.CharField(max_length=255, blank=True)
+    billing_city = models.CharField(max_length=100, blank=True)
+    billing_state = models.CharField(max_length=100, blank=True)
+    billing_postal_code = models.CharField(max_length=20, blank=True)
+    billing_country = models.CharField(max_length=100, blank=True)
+    
+    shipping_address_line1 = models.CharField(max_length=255, blank=True)
+    shipping_address_line2 = models.CharField(max_length=255, blank=True)
+    shipping_city = models.CharField(max_length=100, blank=True)
+    shipping_state = models.CharField(max_length=100, blank=True)
+    shipping_postal_code = models.CharField(max_length=20, blank=True)
+    shipping_country = models.CharField(max_length=100, blank=True)
     
     # Financial Information
-    currency = models.CharField(max_length=3, default='USD', help_text="Preferred currency")
     payment_terms = models.CharField(
         max_length=100,
-        blank=True,
-        help_text="Payment terms (e.g., Net 30, COD)"
+        default='Net 30',
+        help_text="Payment terms with this vendor"
     )
     credit_limit = models.DecimalField(
         max_digits=15,
         decimal_places=2,
         null=True,
+        blank=True
+    )
+    currency = models.CharField(max_length=3, default='USD')
+    
+    # Relationships
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        help_text="Credit limit"
+        related_name='owned_vendors',
+        help_text="Vendor manager/owner"
     )
     
-    # Performance Metrics
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active'
+    )
+    is_approved = models.BooleanField(default=False)
+    is_preferred = models.BooleanField(default=False)
+    
+    # Rating and Performance
     rating = models.DecimalField(
         max_digits=3,
         decimal_places=2,
@@ -103,606 +117,384 @@ class Vendor(CompanyIsolatedModel):
         blank=True,
         help_text="Vendor rating (1-5)"
     )
-    on_time_delivery_rate = models.DecimalField(
+    performance_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         null=True,
         blank=True,
-        help_text="On-time delivery rate percentage"
-    )
-    quality_rating = models.DecimalField(
-        max_digits=3,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Quality rating (1-5)"
+        help_text="Performance score (0-100)"
     )
     
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='owned_vendors',
-        help_text="Vendor owner/manager"
-    )
+    # Notes
+    description = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
     
-    # Additional Information
-    description = models.TextField(blank=True, help_text="Vendor description")
-    notes = models.TextField(blank=True, help_text="Internal notes")
-    
-    # Metadata
-    tags = models.ManyToManyField('crm.Tag', blank=True, related_name='vendors')
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    # Custom Fields
+    custom_fields = models.JSONField(null=True, blank=True)
     
     class Meta:
+        db_table = 'vendor'
         ordering = ['name']
         indexes = [
-            models.Index(fields=['company', 'status']),
+            models.Index(fields=['company', 'name']),
             models.Index(fields=['company', 'vendor_type']),
+            models.Index(fields=['company', 'status']),
             models.Index(fields=['company', 'owner']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.vendor_code})"
+        return self.name
     
     def save(self, *args, **kwargs):
+        # Auto-generate vendor code if not provided
         if not self.vendor_code:
-            # Generate vendor code
-            from django.utils import timezone
-            year = timezone.now().year
-            count = Vendor.objects.filter(
-                company=self.company,
-                created_at__year=year
-            ).count() + 1
-            self.vendor_code = f"V{year}{count:04d}"
+            last_vendor = Vendor.objects.filter(
+                company=self.company
+            ).order_by('-created_at').first()
+            
+            if last_vendor and last_vendor.vendor_code:
+                try:
+                    last_num = int(last_vendor.vendor_code.split('-')[-1])
+                    self.vendor_code = f"VEN-{last_num + 1:06d}"
+                except:
+                    self.vendor_code = f"VEN-000001"
+            else:
+                self.vendor_code = f"VEN-000001"
+        
         super().save(*args, **kwargs)
+    
+    def get_full_address(self, address_type='billing'):
+        """Get formatted address"""
+        if address_type == 'billing':
+            parts = [
+                self.billing_address_line1,
+                self.billing_address_line2,
+                self.billing_city,
+                self.billing_state,
+                self.billing_postal_code,
+                self.billing_country
+            ]
+        else:
+            parts = [
+                self.shipping_address_line1,
+                self.shipping_address_line2,
+                self.shipping_city,
+                self.shipping_state,
+                self.shipping_postal_code,
+                self.shipping_country
+            ]
+        
+        return ', '.join([p for p in parts if p])
 
 class VendorContact(CompanyIsolatedModel):
-    """
-    Additional contacts for vendors
-    """
-    CONTACT_TYPES = [
-        ('primary', 'Primary'),
-        ('billing', 'Billing'),
-        ('shipping', 'Shipping'),
-        ('technical', 'Technical'),
-        ('sales', 'Sales'),
-        ('support', 'Support'),
-        ('other', 'Other'),
-    ]
+    """Vendor contacts"""
     
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.CASCADE,
         related_name='contacts'
     )
-    contact_type = models.CharField(
-        max_length=20,
-        choices=CONTACT_TYPES,
-        default='other'
-    )
-    name = models.CharField(max_length=255, help_text="Contact name")
-    title = models.CharField(max_length=100, blank=True, help_text="Job title")
-    email = models.EmailField(help_text="Contact email")
-    phone = models.CharField(max_length=50, blank=True, help_text="Contact phone")
-    mobile = models.CharField(max_length=50, blank=True, help_text="Mobile phone")
-    department = models.CharField(max_length=100, blank=True, help_text="Department")
-    is_primary = models.BooleanField(default=False, help_text="Is this the primary contact?")
-    
-    class Meta:
-        ordering = ['name']
-        unique_together = ('vendor', 'email')
-    
-    def __str__(self):
-        return f"{self.name} - {self.vendor.name}"
-
-class VendorProduct(CompanyIsolatedModel):
-    """
-    Products/services offered by vendors
-    """
-    vendor = models.ForeignKey(
-        Vendor,
-        on_delete=models.CASCADE,
-        related_name='products'
-    )
-    product = models.ForeignKey(
-        'products.Product',
-        on_delete=models.CASCADE,
-        related_name='vendor_products'
-    )
-    vendor_sku = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Vendor's SKU for this product"
-    )
-    vendor_price = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        help_text="Vendor's price for this product"
-    )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency")
-    minimum_order_quantity = models.PositiveIntegerField(
-        default=1,
-        help_text="Minimum order quantity"
-    )
-    lead_time_days = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Lead time in days"
-    )
-    is_preferred = models.BooleanField(
-        default=False,
-        help_text="Is this the preferred vendor for this product?"
-    )
+    name = models.CharField(max_length=255)
+    title = models.CharField(max_length=100, blank=True)
+    department = models.CharField(max_length=100, blank=True)
+    email = models.EmailField(blank=True, validators=[EmailValidator()])
+    phone = models.CharField(max_length=50, blank=True)
+    mobile = models.CharField(max_length=50, blank=True)
+    fax = models.CharField(max_length=50, blank=True)
+    is_primary = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     
     class Meta:
-        ordering = ['product__name']
-        unique_together = ('vendor', 'product')
+        db_table = 'vendor_contact'
+        ordering = ['name']
     
     def __str__(self):
-        return f"{self.vendor.name} - {self.product.name}"
+        return f"{self.vendor.name} - {self.name}"
 
 class PurchaseOrder(CompanyIsolatedModel):
-    """
-    Purchase orders to vendors
-    """
-    ORDER_STATUS_CHOICES = [
+    """Purchase orders"""
+    
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('sent', 'Sent'),
         ('acknowledged', 'Acknowledged'),
-        ('confirmed', 'Confirmed'),
         ('partially_received', 'Partially Received'),
         ('received', 'Received'),
+        ('invoiced', 'Invoiced'),
+        ('paid', 'Paid'),
         ('cancelled', 'Cancelled'),
-        ('closed', 'Closed'),
     ]
     
     # Basic Information
-    order_number = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique purchase order number"
-    )
-    title = models.CharField(max_length=255, help_text="Purchase order title")
-    description = models.TextField(blank=True, help_text="Purchase order description")
+    po_number = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     
     # Relationships
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.CASCADE,
-        related_name='purchase_orders',
-        help_text="Vendor"
+        related_name='purchase_orders'
     )
     vendor_contact = models.ForeignKey(
         VendorContact,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='purchase_orders',
-        help_text="Vendor contact"
+        related_name='purchase_orders'
     )
-    
-    # Status and Dates
-    status = models.CharField(
-        max_length=20,
-        choices=ORDER_STATUS_CHOICES,
-        default='draft'
-    )
-    order_date = models.DateField(help_text="Order date")
-    expected_delivery_date = models.DateField(
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
         null=True,
-        blank=True,
-        help_text="Expected delivery date"
-    )
-    actual_delivery_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Actual delivery date"
+        related_name='owned_purchase_orders'
     )
     
     # Financial Information
     subtotal = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Subtotal before taxes and discounts"
+        default=0
     )
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax rate percentage"
+        default=0
     )
     tax_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax amount"
+        default=0
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount percentage"
+        default=0
     )
     discount_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount amount"
+        default=0
+    )
+    shipping_cost = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0
     )
     total_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Total amount"
+        default=0
     )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
+    currency = models.CharField(max_length=3, default='USD')
     
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
+    # Dates
+    order_date = models.DateField()
+    required_date = models.DateField(
         null=True,
-        related_name='owned_purchase_orders',
-        help_text="Purchase order owner"
+        blank=True,
+        help_text="Required delivery date"
+    )
+    sent_date = models.DateTimeField(null=True, blank=True)
+    acknowledged_date = models.DateTimeField(null=True, blank=True)
+    received_date = models.DateTimeField(null=True, blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
     )
     
     # Shipping Information
-    shipping_address = models.TextField(blank=True, help_text="Shipping address")
-    shipping_method = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Shipping method"
-    )
-    tracking_number = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Tracking number"
+    shipping_address = models.JSONField(
+        default=dict,
+        help_text="Shipping address details"
     )
     
     # Terms and Conditions
-    terms_conditions = models.TextField(
-        blank=True,
-        help_text="Terms and conditions"
-    )
-    notes = models.TextField(blank=True, help_text="Internal notes")
-    
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    terms_conditions = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
     
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'purchase_order'
+        ordering = ['-order_date']
         indexes = [
-            models.Index(fields=['company', 'status']),
+            models.Index(fields=['company', 'po_number']),
             models.Index(fields=['company', 'vendor']),
+            models.Index(fields=['company', 'status']),
             models.Index(fields=['company', 'owner']),
-            models.Index(fields=['company', 'order_date']),
         ]
     
     def __str__(self):
-        return f"{self.order_number} - {self.vendor.name}"
+        return f"{self.po_number} - {self.title}"
     
     def save(self, *args, **kwargs):
-        if not self.order_number:
-            # Generate order number
-            from django.utils import timezone
-            year = timezone.now().year
-            month = timezone.now().month
-            count = PurchaseOrder.objects.filter(
-                company=self.company,
-                created_at__year=year,
-                created_at__month=month
-            ).count() + 1
-            self.order_number = f"PO{year}{month:02d}{count:04d}"
+        if not self.po_number:
+            # Generate PO number
+            last_po = PurchaseOrder.objects.filter(
+                company=self.company
+            ).order_by('-created_at').first()
+            
+            if last_po and last_po.po_number:
+                try:
+                    last_num = int(last_po.po_number.split('-')[-1])
+                    self.po_number = f"PO-{last_num + 1:06d}"
+                except:
+                    self.po_number = f"PO-000001"
+            else:
+                self.po_number = f"PO-000001"
+        
+        # Calculate totals
+        self.calculate_totals()
         super().save(*args, **kwargs)
+    
+    def calculate_totals(self):
+        """Calculate PO totals"""
+        # Calculate subtotal from line items
+        subtotal = sum(item.total_price for item in self.items.all())
+        self.subtotal = subtotal
+        
+        # Calculate discount
+        if self.discount_percentage > 0:
+            self.discount_amount = (subtotal * self.discount_percentage) / 100
+        else:
+            self.discount_amount = 0
+        
+        # Calculate tax
+        taxable_amount = subtotal - self.discount_amount
+        self.tax_amount = (taxable_amount * self.tax_rate) / 100
+        
+        # Calculate total
+        self.total_amount = taxable_amount + self.tax_amount + self.shipping_cost
 
 class PurchaseOrderItem(CompanyIsolatedModel):
-    """
-    Items in a purchase order
-    """
-    order = models.ForeignKey(
+    """Purchase order line items"""
+    
+    purchase_order = models.ForeignKey(
         PurchaseOrder,
         on_delete=models.CASCADE,
         related_name='items'
     )
-    product = models.ForeignKey(
-        'products.Product',
-        on_delete=models.CASCADE,
-        related_name='purchase_order_items'
-    )
-    vendor_product = models.ForeignKey(
-        VendorProduct,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='purchase_order_items'
-    )
-    description = models.TextField(blank=True, help_text="Item description")
+    product_name = models.CharField(max_length=255, help_text="Product/service name")
+    description = models.TextField(blank=True)
+    sku = models.CharField(max_length=100, blank=True, help_text="Vendor SKU")
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=1.00
+        default=1,
+        validators=[models.MinValueValidator(0.01)]
     )
     unit_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2
+        decimal_places=2,
+        validators=[models.MinValueValidator(0)]
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Item discount percentage"
-    )
-    discount_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        help_text="Item discount amount"
+        default=0
     )
     total_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2,
-        help_text="Total price after discount"
+        decimal_places=2
     )
+    
+    # Receiving
     received_quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=0.00,
+        default=0,
         help_text="Quantity received"
+    )
+    pending_quantity = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text="Quantity pending"
     )
     
     class Meta:
+        db_table = 'purchase_order_item'
         ordering = ['created_at']
     
     def __str__(self):
-        return f"{self.order.order_number} - {self.product.name}"
+        return f"{self.purchase_order.po_number} - {self.product_name}"
     
     def save(self, *args, **kwargs):
         # Calculate total price
         base_price = self.quantity * self.unit_price
-        self.discount_amount = (base_price * self.discount_percentage) / 100
-        self.total_price = base_price - self.discount_amount
+        discount_amount = (base_price * self.discount_percentage) / 100
+        self.total_price = base_price - discount_amount
+        
+        # Calculate pending quantity
+        self.pending_quantity = self.quantity - self.received_quantity
+        
         super().save(*args, **kwargs)
-    
-    @property
-    def is_fully_received(self):
-        """Check if item is fully received"""
-        return self.received_quantity >= self.quantity
-    
-    @property
-    def remaining_quantity(self):
-        """Calculate remaining quantity to be received"""
-        return self.quantity - self.received_quantity
 
-class VendorInvoice(CompanyIsolatedModel):
-    """
-    Invoices received from vendors
-    """
-    INVOICE_STATUS_CHOICES = [
-        ('draft', 'Draft'),
-        ('received', 'Received'),
-        ('verified', 'Verified'),
-        ('approved', 'Approved'),
-        ('paid', 'Paid'),
-        ('disputed', 'Disputed'),
-        ('cancelled', 'Cancelled'),
-    ]
+class VendorPerformance(CompanyIsolatedModel):
+    """Vendor performance tracking"""
     
-    # Basic Information
-    invoice_number = models.CharField(
-        max_length=100,
-        help_text="Vendor invoice number"
-    )
-    title = models.CharField(max_length=255, help_text="Invoice title")
-    description = models.TextField(blank=True, help_text="Invoice description")
-    
-    # Relationships
     vendor = models.ForeignKey(
         Vendor,
         on_delete=models.CASCADE,
-        related_name='invoices'
+        related_name='performance_records'
     )
-    purchase_order = models.ForeignKey(
-        PurchaseOrder,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='invoices',
-        help_text="Related purchase order"
-    )
+    period_start = models.DateField()
+    period_end = models.DateField()
     
-    # Status and Dates
-    status = models.CharField(
-        max_length=20,
-        choices=INVOICE_STATUS_CHOICES,
-        default='draft'
-    )
-    invoice_date = models.DateField(help_text="Invoice date")
-    due_date = models.DateField(help_text="Payment due date")
-    received_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When invoice was received"
-    )
-    paid_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When invoice was paid"
-    )
-    
-    # Financial Information
-    subtotal = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        help_text="Subtotal before taxes and discounts"
-    )
-    tax_rate = models.DecimalField(
+    # Performance Metrics
+    delivery_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax rate percentage"
+        default=0,
+        help_text="Delivery performance score (0-100)"
     )
-    tax_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        help_text="Tax amount"
-    )
-    discount_percentage = models.DecimalField(
+    quality_score = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount percentage"
+        default=0,
+        help_text="Quality performance score (0-100)"
     )
-    discount_amount = models.DecimalField(
-        max_digits=15,
+    communication_score = models.DecimalField(
+        max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount amount"
+        default=0,
+        help_text="Communication score (0-100)"
     )
-    total_amount = models.DecimalField(
-        max_digits=15,
+    overall_score = models.DecimalField(
+        max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Total amount"
-    )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
-    
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='owned_vendor_invoices',
-        help_text="Invoice owner"
+        default=0,
+        help_text="Overall performance score (0-100)"
     )
     
-    # Additional Information
-    notes = models.TextField(blank=True, help_text="Internal notes")
-    
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['company', 'status']),
-            models.Index(fields=['company', 'vendor']),
-            models.Index(fields=['company', 'owner']),
-            models.Index(fields=['company', 'due_date']),
-        ]
-    
-    def __str__(self):
-        return f"{self.invoice_number} - {self.vendor.name}"
-    
-    @property
-    def is_overdue(self):
-        """Check if invoice is overdue"""
-        if self.status in ['received', 'verified', 'approved'] and self.due_date:
-            from django.utils import timezone
-            return timezone.now().date() > self.due_date
-        return False
-
-class VendorPayment(CompanyIsolatedModel):
-    """
-    Payments made to vendors
-    """
-    PAYMENT_METHODS = [
-        ('check', 'Check'),
-        ('bank_transfer', 'Bank Transfer'),
-        ('credit_card', 'Credit Card'),
-        ('cash', 'Cash'),
-        ('other', 'Other'),
-    ]
-    
-    PAYMENT_STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('processing', 'Processing'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('cancelled', 'Cancelled'),
-    ]
-    
-    # Basic Information
-    payment_number = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique payment number"
-    )
-    amount = models.DecimalField(
-        max_digits=15,
+    # Metrics
+    on_time_delivery_rate = models.DecimalField(
+        max_digits=5,
         decimal_places=2,
-        help_text="Payment amount"
+        default=0,
+        help_text="On-time delivery rate percentage"
     )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
-    
-    # Relationships
-    vendor = models.ForeignKey(
-        Vendor,
-        on_delete=models.CASCADE,
-        related_name='payments'
-    )
-    invoice = models.ForeignKey(
-        VendorInvoice,
-        on_delete=models.CASCADE,
-        related_name='payments',
-        help_text="Related vendor invoice"
-    )
-    
-    # Payment Details
-    payment_method = models.CharField(
-        max_length=20,
-        choices=PAYMENT_METHODS,
-        help_text="Payment method"
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=PAYMENT_STATUS_CHOICES,
-        default='pending'
-    )
-    payment_date = models.DateTimeField(help_text="Payment date and time")
-    reference_number = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Payment reference number"
-    )
+    quality_issues_count = models.IntegerField(default=0)
+    communication_issues_count = models.IntegerField(default=0)
     
     # Notes
-    notes = models.TextField(blank=True, help_text="Payment notes")
-    
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
     
     class Meta:
-        ordering = ['-payment_date']
-        indexes = [
-            models.Index(fields=['company', 'status']),
-            models.Index(fields=['company', 'vendor']),
-            models.Index(fields=['company', 'payment_date']),
-        ]
+        db_table = 'vendor_performance'
+        ordering = ['-period_end']
+        unique_together = ('vendor', 'period_start', 'period_end')
     
     def __str__(self):
-        return f"{self.payment_number} - {self.amount} {self.currency}"
+        return f"{self.vendor.name} - {self.period_start} to {self.period_end}"
     
     def save(self, *args, **kwargs):
-        if not self.payment_number:
-            # Generate payment number
-            from django.utils import timezone
-            year = timezone.now().year
-            month = timezone.now().month
-            count = VendorPayment.objects.filter(
-                company=self.company,
-                created_at__year=year,
-                created_at__month=month
-            ).count() + 1
-            self.payment_number = f"VP{year}{month:02d}{count:04d}"
+        # Calculate overall score
+        self.overall_score = (
+            self.delivery_score + 
+            self.quality_score + 
+            self.communication_score
+        ) / 3
         super().save(*args, **kwargs)

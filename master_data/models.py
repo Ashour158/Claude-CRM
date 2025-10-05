@@ -1,163 +1,102 @@
 # master_data/models.py
-# Master Data Management for enterprise CRM
+# Master data management models
 
 from django.db import models
-from core.models import CompanyIsolatedModel, User
-from django.core.validators import RegexValidator
+from django.contrib.auth import get_user_model
+from core.models import CompanyIsolatedModel
 import uuid
 
-class MasterDataCategory(CompanyIsolatedModel):
-    """Categories for master data classification"""
+User = get_user_model()
+
+class DataCategory(CompanyIsolatedModel):
+    """Data categories for master data management"""
     
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True, null=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    parent_category = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='subcategories'
+    )
     is_active = models.BooleanField(default=True)
-    sort_order = models.IntegerField(default=0)
     
     class Meta:
-        verbose_name_plural = "Master Data Categories"
-        ordering = ['sort_order', 'name']
+        db_table = 'data_category'
+        ordering = ['name']
+        verbose_name_plural = 'Data Categories'
     
     def __str__(self):
         return self.name
 
-
 class MasterDataField(CompanyIsolatedModel):
-    """Fields for master data records"""
+    """Master data field definitions"""
     
     FIELD_TYPES = [
         ('text', 'Text'),
         ('number', 'Number'),
         ('date', 'Date'),
         ('boolean', 'Boolean'),
-        ('email', 'Email'),
-        ('url', 'URL'),
-        ('phone', 'Phone'),
-        ('select', 'Select'),
-        ('multiselect', 'Multi-Select'),
+        ('choice', 'Choice'),
+        ('multichoice', 'Multi Choice'),
+        ('reference', 'Reference'),
     ]
     
-    category = models.ForeignKey(MasterDataCategory, on_delete=models.CASCADE, related_name='fields')
-    name = models.CharField(max_length=100)
-    field_type = models.CharField(max_length=20, choices=FIELD_TYPES)
+    # Basic Information
+    name = models.CharField(max_length=255)
+    label = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    field_type = models.CharField(
+        max_length=20,
+        choices=FIELD_TYPES,
+        default='text'
+    )
+    
+    # Field Configuration
     is_required = models.BooleanField(default=False)
     is_unique = models.BooleanField(default=False)
-    default_value = models.TextField(blank=True, null=True)
-    validation_rules = models.JSONField(default=dict, blank=True)
-    options = models.JSONField(default=list, blank=True)  # For select/multiselect fields
-    sort_order = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True)
+    default_value = models.TextField(blank=True)
+    choices = models.JSONField(
+        default=list,
+        help_text="Choices for choice/multichoice fields"
+    )
+    validation_rules = models.JSONField(
+        default=dict,
+        help_text="Field validation rules"
+    )
+    
+    # Reference Configuration
+    reference_model = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Referenced model for reference fields"
+    )
+    reference_field = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Referenced field for reference fields"
+    )
+    
+    # Display Settings
+    display_order = models.IntegerField(default=0)
+    is_visible = models.BooleanField(default=True)
+    help_text = models.TextField(blank=True)
+    
+    # Access Control
+    is_editable = models.BooleanField(default=True)
+    is_searchable = models.BooleanField(default=True)
     
     class Meta:
-        unique_together = ('company', 'category', 'name')
-        ordering = ['sort_order', 'name']
+        db_table = 'master_data_field'
+        ordering = ['display_order']
+        unique_together = ('company', 'name')
     
     def __str__(self):
-        return f"{self.category.name} - {self.name}"
-
-
-class MasterDataRecord(CompanyIsolatedModel):
-    """Master data records"""
-    
-    category = models.ForeignKey(MasterDataCategory, on_delete=models.CASCADE, related_name='records')
-    external_id = models.CharField(max_length=100, blank=True, null=True)  # External system ID
-    data = models.JSONField(default=dict)  # Flexible data storage
-    is_active = models.BooleanField(default=True)
-    is_verified = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_master_data')
-    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_master_data')
-    verified_at = models.DateTimeField(null=True, blank=True)
-    last_updated = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        unique_together = ('company', 'category', 'external_id')
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.category.name} - {self.external_id or self.id}"
-    
-    def get_field_value(self, field_name: str):
-        """Get value for a specific field"""
-        return self.data.get(field_name)
-    
-    def set_field_value(self, field_name: str, value):
-        """Set value for a specific field"""
-        self.data[field_name] = value
-        self.save(update_fields=['data'])
-    
-    def validate_data(self):
-        """Validate data against field definitions"""
-        errors = []
-        
-        for field in self.category.fields.filter(is_active=True):
-            value = self.data.get(field.name)
-            
-            # Check required fields
-            if field.is_required and not value:
-                errors.append(f"{field.name} is required")
-                continue
-            
-            # Skip validation if no value and not required
-            if not value:
-                continue
-            
-            # Type-specific validation
-            if field.field_type == 'email':
-                from django.core.validators import validate_email
-                try:
-                    validate_email(value)
-                except:
-                    errors.append(f"{field.name} must be a valid email")
-            
-            elif field.field_type == 'number':
-                try:
-                    float(value)
-                except (ValueError, TypeError):
-                    errors.append(f"{field.name} must be a number")
-            
-            elif field.field_type == 'date':
-                from datetime import datetime
-                try:
-                    datetime.strptime(value, '%Y-%m-%d')
-                except (ValueError, TypeError):
-                    errors.append(f"{field.name} must be a valid date (YYYY-MM-DD)")
-            
-            elif field.field_type == 'boolean':
-                if value not in [True, False, 'true', 'false', '1', '0']:
-                    errors.append(f"{field.name} must be true or false")
-            
-            elif field.field_type == 'url':
-                from django.core.validators import URLValidator
-                try:
-                    URLValidator()(value)
-                except:
-                    errors.append(f"{field.name} must be a valid URL")
-            
-            elif field.field_type == 'phone':
-                phone_validator = RegexValidator(
-                    regex=r'^\+?1?\d{9,15}$',
-                    message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-                )
-                try:
-                    phone_validator(value)
-                except:
-                    errors.append(f"{field.name} must be a valid phone number")
-            
-            elif field.field_type in ['select', 'multiselect']:
-                if field.field_type == 'select':
-                    if value not in field.options:
-                        errors.append(f"{field.name} must be one of: {', '.join(field.options)}")
-                else:  # multiselect
-                    if not isinstance(value, list):
-                        errors.append(f"{field.name} must be a list")
-                    elif not all(option in field.options for option in value):
-                        errors.append(f"{field.name} must contain only valid options")
-        
-        return errors
-
+        return self.label
 
 class DataQualityRule(CompanyIsolatedModel):
-    """Data quality rules for master data"""
+    """Data quality rules and validation"""
     
     RULE_TYPES = [
         ('completeness', 'Completeness'),
@@ -165,121 +104,390 @@ class DataQualityRule(CompanyIsolatedModel):
         ('consistency', 'Consistency'),
         ('uniqueness', 'Uniqueness'),
         ('validity', 'Validity'),
+        ('timeliness', 'Timeliness'),
     ]
     
-    category = models.ForeignKey(MasterDataCategory, on_delete=models.CASCADE, related_name='quality_rules')
-    name = models.CharField(max_length=100)
-    rule_type = models.CharField(max_length=20, choices=RULE_TYPES)
-    description = models.TextField()
-    rule_expression = models.TextField()  # JSON or SQL expression
-    severity = models.CharField(max_length=20, choices=[
+    SEVERITY_LEVELS = [
         ('low', 'Low'),
         ('medium', 'Medium'),
         ('high', 'High'),
         ('critical', 'Critical'),
-    ], default='medium')
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        unique_together = ('company', 'category', 'name')
-    
-    def __str__(self):
-        return f"{self.category.name} - {self.name}"
-
-
-class DataQualityCheck(CompanyIsolatedModel):
-    """Data quality check results"""
-    
-    record = models.ForeignKey(MasterDataRecord, on_delete=models.CASCADE, related_name='quality_checks')
-    rule = models.ForeignKey(DataQualityRule, on_delete=models.CASCADE, related_name='check_results')
-    passed = models.BooleanField()
-    error_message = models.TextField(blank=True, null=True)
-    checked_at = models.DateTimeField(auto_now_add=True)
-    checked_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    class Meta:
-        unique_together = ('record', 'rule')
-        ordering = ['-checked_at']
-    
-    def __str__(self):
-        return f"{self.record} - {self.rule.name} - {'PASS' if self.passed else 'FAIL'}"
-
-
-class DataMapping(CompanyIsolatedModel):
-    """Data mapping between systems"""
-    
-    MAPPING_TYPES = [
-        ('import', 'Import'),
-        ('export', 'Export'),
-        ('sync', 'Synchronization'),
     ]
     
-    name = models.CharField(max_length=100)
-    mapping_type = models.CharField(max_length=20, choices=MAPPING_TYPES)
-    source_system = models.CharField(max_length=100)
-    target_system = models.CharField(max_length=100)
-    category = models.ForeignKey(MasterDataCategory, on_delete=models.CASCADE, related_name='mappings')
-    field_mappings = models.JSONField(default=dict)  # Field mapping configuration
-    transformation_rules = models.JSONField(default=dict)  # Data transformation rules
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    rule_type = models.CharField(
+        max_length=20,
+        choices=RULE_TYPES,
+        default='validity'
+    )
+    severity = models.CharField(
+        max_length=20,
+        choices=SEVERITY_LEVELS,
+        default='medium'
+    )
+    
+    # Rule Configuration
+    entity_type = models.CharField(
+        max_length=100,
+        help_text="Entity type this rule applies to"
+    )
+    field_name = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Field name this rule applies to"
+    )
+    condition = models.TextField(help_text="Rule condition/expression")
+    error_message = models.TextField(help_text="Error message when rule fails")
+    
+    # Status
     is_active = models.BooleanField(default=True)
-    last_sync = models.DateTimeField(null=True, blank=True)
-    sync_frequency = models.IntegerField(default=24)  # Hours between syncs
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Apply to all companies"
+    )
+    
+    # Execution
+    execution_count = models.IntegerField(default=0)
+    violation_count = models.IntegerField(default=0)
+    last_executed = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_data_quality_rules'
+    )
     
     class Meta:
-        unique_together = ('company', 'name')
+        db_table = 'data_quality_rule'
+        ordering = ['name']
     
     def __str__(self):
-        return f"{self.name} ({self.mapping_type})"
+        return self.name
 
-
-class DataSyncLog(CompanyIsolatedModel):
-    """Data synchronization logs"""
+class DataQualityViolation(CompanyIsolatedModel):
+    """Data quality violations"""
     
-    mapping = models.ForeignKey(DataMapping, on_delete=models.CASCADE, related_name='sync_logs')
-    started_at = models.DateTimeField()
-    completed_at = models.DateTimeField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=[
+    rule = models.ForeignKey(
+        DataQualityRule,
+        on_delete=models.CASCADE,
+        related_name='violations'
+    )
+    
+    # Violation Details
+    entity_type = models.CharField(max_length=100)
+    entity_id = models.CharField(max_length=100)
+    field_name = models.CharField(max_length=100, blank=True)
+    current_value = models.TextField(blank=True)
+    expected_value = models.TextField(blank=True)
+    violation_message = models.TextField()
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('open', 'Open'),
+            ('in_progress', 'In Progress'),
+            ('resolved', 'Resolved'),
+            ('ignored', 'Ignored'),
+        ],
+        default='open'
+    )
+    
+    # Resolution
+    resolved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_violations'
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'data_quality_violation'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.rule.name} - {self.entity_type} {self.entity_id}"
+
+class DataImport(CompanyIsolatedModel):
+    """Data import configurations and history"""
+    
+    IMPORT_TYPES = [
+        ('csv', 'CSV'),
+        ('excel', 'Excel'),
+        ('json', 'JSON'),
+        ('xml', 'XML'),
+        ('api', 'API'),
+        ('database', 'Database'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
         ('running', 'Running'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
         ('cancelled', 'Cancelled'),
-    ], default='running')
-    records_processed = models.IntegerField(default=0)
-    records_successful = models.IntegerField(default=0)
-    records_failed = models.IntegerField(default=0)
-    error_message = models.TextField(blank=True, null=True)
-    executed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    
-    class Meta:
-        ordering = ['-started_at']
-    
-    def __str__(self):
-        return f"{self.mapping.name} - {self.started_at} - {self.status}"
-
-
-class DataGovernance(CompanyIsolatedModel):
-    """Data governance policies and rules"""
-    
-    POLICY_TYPES = [
-        ('retention', 'Data Retention'),
-        ('privacy', 'Privacy'),
-        ('access', 'Access Control'),
-        ('quality', 'Data Quality'),
-        ('compliance', 'Compliance'),
     ]
     
-    name = models.CharField(max_length=100)
-    policy_type = models.CharField(max_length=20, choices=POLICY_TYPES)
-    description = models.TextField()
-    rules = models.JSONField(default=dict)  # Policy rules and conditions
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    import_type = models.CharField(
+        max_length=20,
+        choices=IMPORT_TYPES,
+        default='csv'
+    )
+    
+    # Source Configuration
+    source_file = models.FileField(
+        upload_to='imports/',
+        null=True,
+        blank=True
+    )
+    source_url = models.URLField(blank=True)
+    source_config = models.JSONField(
+        default=dict,
+        help_text="Source configuration"
+    )
+    
+    # Target Configuration
+    target_entity = models.CharField(
+        max_length=100,
+        help_text="Target entity type"
+    )
+    field_mapping = models.JSONField(
+        default=dict,
+        help_text="Field mapping configuration"
+    )
+    import_rules = models.JSONField(
+        default=dict,
+        help_text="Import rules and transformations"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
     is_active = models.BooleanField(default=True)
-    effective_date = models.DateField()
-    expiry_date = models.DateField(null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_governance_policies')
+    
+    # Statistics
+    total_records = models.IntegerField(default=0)
+    imported_records = models.IntegerField(default=0)
+    failed_records = models.IntegerField(default=0)
+    skipped_records = models.IntegerField(default=0)
+    
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_data_imports'
+    )
     
     class Meta:
-        unique_together = ('company', 'name')
-        ordering = ['-effective_date']
+        db_table = 'data_import'
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.name} ({self.policy_type})"
+        return self.name
+
+class DataExport(CompanyIsolatedModel):
+    """Data export configurations and history"""
+    
+    EXPORT_TYPES = [
+        ('csv', 'CSV'),
+        ('excel', 'Excel'),
+        ('json', 'JSON'),
+        ('xml', 'XML'),
+        ('pdf', 'PDF'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    export_type = models.CharField(
+        max_length=20,
+        choices=EXPORT_TYPES,
+        default='csv'
+    )
+    
+    # Source Configuration
+    source_entity = models.CharField(
+        max_length=100,
+        help_text="Source entity type"
+    )
+    source_filters = models.JSONField(
+        default=dict,
+        help_text="Source filters"
+    )
+    source_fields = models.JSONField(
+        default=list,
+        help_text="Fields to export"
+    )
+    
+    # Export Configuration
+    export_format = models.JSONField(
+        default=dict,
+        help_text="Export format configuration"
+    )
+    export_rules = models.JSONField(
+        default=dict,
+        help_text="Export rules and transformations"
+    )
+    
+    # Output
+    output_file = models.FileField(
+        upload_to='exports/',
+        null=True,
+        blank=True
+    )
+    output_url = models.URLField(blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Statistics
+    total_records = models.IntegerField(default=0)
+    exported_records = models.IntegerField(default=0)
+    failed_records = models.IntegerField(default=0)
+    
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_data_exports'
+    )
+    
+    class Meta:
+        db_table = 'data_export'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return self.name
+
+class DataSynchronization(CompanyIsolatedModel):
+    """Data synchronization between systems"""
+    
+    SYNC_TYPES = [
+        ('import', 'Import'),
+        ('export', 'Export'),
+        ('bidirectional', 'Bidirectional'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    sync_type = models.CharField(
+        max_length=20,
+        choices=SYNC_TYPES,
+        default='import'
+    )
+    
+    # Source and Target
+    source_system = models.CharField(max_length=100)
+    target_system = models.CharField(max_length=100)
+    source_config = models.JSONField(
+        default=dict,
+        help_text="Source system configuration"
+    )
+    target_config = models.JSONField(
+        default=dict,
+        help_text="Target system configuration"
+    )
+    
+    # Sync Configuration
+    entity_type = models.CharField(
+        max_length=100,
+        help_text="Entity type to sync"
+    )
+    field_mapping = models.JSONField(
+        default=dict,
+        help_text="Field mapping between systems"
+    )
+    sync_filters = models.JSONField(
+        default=dict,
+        help_text="Filters for sync data"
+    )
+    
+    # Scheduling
+    is_scheduled = models.BooleanField(default=False)
+    schedule_frequency = models.CharField(
+        max_length=20,
+        choices=[
+            ('manual', 'Manual'),
+            ('hourly', 'Hourly'),
+            ('daily', 'Daily'),
+            ('weekly', 'Weekly'),
+            ('monthly', 'Monthly'),
+        ],
+        default='manual'
+    )
+    schedule_time = models.TimeField(null=True, blank=True)
+    next_sync = models.DateTimeField(null=True, blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Statistics
+    total_records = models.IntegerField(default=0)
+    synced_records = models.IntegerField(default=0)
+    failed_records = models.IntegerField(default=0)
+    last_sync = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_data_synchronizations'
+    )
+    
+    class Meta:
+        db_table = 'data_synchronization'
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.source_system} -> {self.target_system})"

@@ -11,21 +11,48 @@ urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
     
-    # API URLs
-    path('api/auth/', include('core.urls')),
+    # API URLs - Core
+    path('api/core/', include('core.urls')),
+    path('api/auth/', include('core.urls')),  # Alias for frontend compatibility
+    
+    # API URLs - CRM
     path('api/crm/', include('crm.urls')),
-    path('api/territories/', include('territories.urls')),
+    
+    # API URLs - Activities
     path('api/activities/', include('activities.urls')),
+    
+    # API URLs - Deals
     path('api/deals/', include('deals.urls')),
+    
+    # API URLs - Products
     path('api/products/', include('products.urls')),
-    path('api/sales/', include('sales.urls')),
-    path('api/vendors/', include('vendors.urls')),
-    path('api/analytics/', include('analytics.urls')),
-    path('api/marketing/', include('marketing.urls')),
-    path('api/system-config/', include('system_config.urls')),
-    path('api/integrations/', include('integrations.urls')),
-    path('api/master-data/', include('master_data.urls')),
-    path('api/workflow/', include('workflow.urls')),
+    
+    # API URLs - Territories
+    path('api/territories/', include('territories.urls')),
+    
+    # API URLs - Sales (placeholder)
+    # path('api/sales/', include('sales.urls')),
+    
+    # API URLs - Vendors (placeholder)
+    # path('api/vendors/', include('vendors.urls')),
+    
+    # API URLs - Analytics (placeholder)
+    # path('api/analytics/', include('analytics.urls')),
+    
+    # API URLs - Marketing (placeholder)
+    # path('api/marketing/', include('marketing.urls')),
+    
+    # API URLs - System Config (placeholder)
+    # path('api/system-config/', include('system_config.urls')),
+    
+    # API URLs - Integrations (placeholder)
+    # path('api/integrations/', include('integrations.urls')),
+    
+    # API URLs - Master Data (placeholder)
+    # path('api/master-data/', include('master_data.urls')),
+    
+    # API URLs - Workflow (placeholder)
+    # path('api/workflow/', include('workflow.urls')),
     
     # Health Check
     path('health/', TemplateView.as_view(template_name='health.html')),

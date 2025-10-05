@@ -216,9 +216,9 @@ function App() {
                   path="/contacts" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <ContactsList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -226,9 +226,9 @@ function App() {
                   path="/contacts/:id" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <ContactDetail />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -238,9 +238,9 @@ function App() {
                   path="/leads" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <LeadsList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -248,9 +248,9 @@ function App() {
                   path="/leads/:id" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <LeadDetail />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -260,9 +260,9 @@ function App() {
                   path="/deals" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <DealsList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -270,9 +270,9 @@ function App() {
                   path="/deals/:id" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <DealDetail />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -282,9 +282,9 @@ function App() {
                   path="/activities" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <ActivitiesList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -294,9 +294,9 @@ function App() {
                   path="/tasks" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <TasksList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -306,9 +306,9 @@ function App() {
                   path="/events" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <EventsList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -318,9 +318,9 @@ function App() {
                   path="/products" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <ProductsList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -328,9 +328,9 @@ function App() {
                   path="/products/:id" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <ProductDetail />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -340,9 +340,9 @@ function App() {
                   path="/territories" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <TerritoriesList />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />
@@ -350,9 +350,9 @@ function App() {
                   path="/territories/:id" 
                   element={
                     <ProtectedRoute>
-                      <Layout>
+                      <MainLayout>
                         <TerritoryDetail />
-                      </Layout>
+                      </MainLayout>
                     </ProtectedRoute>
                   } 
                 />

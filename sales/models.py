@@ -1,151 +1,124 @@
 # sales/models.py
+# Sales documents and order management models
+
 from django.db import models
-from django.contrib.auth import get_user_model
-from core.models import CompanyIsolatedModel
+from django.core.validators import MinValueValidator
+from core.models import CompanyIsolatedModel, User
+from crm.models import Account, Contact
+from products.models import Product
 import uuid
 
-User = get_user_model()
-
 class Quote(CompanyIsolatedModel):
-    """
-    Sales quotes/proposals
-    """
-    QUOTE_STATUS_CHOICES = [
+    """Sales quotes/proposals"""
+    
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('sent', 'Sent'),
         ('viewed', 'Viewed'),
         ('accepted', 'Accepted'),
         ('rejected', 'Rejected'),
         ('expired', 'Expired'),
-        ('converted', 'Converted to Order'),
     ]
     
     # Basic Information
-    quote_number = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique quote number"
-    )
-    title = models.CharField(max_length=255, help_text="Quote title")
-    description = models.TextField(blank=True, help_text="Quote description")
+    quote_number = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     
     # Relationships
     account = models.ForeignKey(
-        'crm.Account',
+        Account,
         on_delete=models.CASCADE,
-        related_name='quotes',
-        help_text="Associated account"
+        related_name='quotes'
     )
     contact = models.ForeignKey(
-        'crm.Contact',
+        Contact,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='quotes',
-        help_text="Primary contact"
+        related_name='quotes'
     )
-    deal = models.ForeignKey(
-        'deals.Deal',
+    owner = models.ForeignKey(
+        User,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
-        related_name='quotes',
-        help_text="Associated deal"
-    )
-    
-    # Status and Dates
-    status = models.CharField(
-        max_length=20,
-        choices=QUOTE_STATUS_CHOICES,
-        default='draft'
-    )
-    valid_until = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Quote validity date"
-    )
-    sent_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When quote was sent"
-    )
-    viewed_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When quote was viewed"
-    )
-    accepted_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When quote was accepted"
+        related_name='owned_quotes'
     )
     
     # Financial Information
     subtotal = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Subtotal before taxes and discounts"
+        default=0
     )
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
+        default=0,
         help_text="Tax rate percentage"
     )
     tax_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax amount"
+        default=0
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
+        default=0,
         help_text="Discount percentage"
     )
     discount_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount amount"
+        default=0
     )
     total_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Total amount"
+        default=0
     )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
+    currency = models.CharField(max_length=3, default='USD')
     
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
+    # Dates
+    quote_date = models.DateField()
+    valid_until = models.DateField(
         null=True,
-        related_name='owned_quotes',
-        help_text="Quote owner"
+        blank=True,
+        help_text="Quote validity period"
+    )
+    sent_date = models.DateTimeField(null=True, blank=True)
+    viewed_date = models.DateTimeField(null=True, blank=True)
+    accepted_date = models.DateTimeField(null=True, blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
     )
     
     # Terms and Conditions
-    terms_conditions = models.TextField(
-        blank=True,
-        help_text="Terms and conditions"
-    )
-    notes = models.TextField(blank=True, help_text="Internal notes")
+    terms_conditions = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
     
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    # Conversion
+    converted_to_order = models.ForeignKey(
+        'SalesOrder',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='converted_from_quote'
+    )
     
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'quote'
+        ordering = ['-quote_date']
         indexes = [
-            models.Index(fields=['company', 'status']),
+            models.Index(fields=['company', 'quote_number']),
             models.Index(fields=['company', 'account']),
+            models.Index(fields=['company', 'status']),
             models.Index(fields=['company', 'owner']),
-            models.Index(fields=['company', 'valid_until']),
         ]
     
     def __str__(self):
@@ -154,60 +127,71 @@ class Quote(CompanyIsolatedModel):
     def save(self, *args, **kwargs):
         if not self.quote_number:
             # Generate quote number
-            from django.utils import timezone
-            year = timezone.now().year
-            month = timezone.now().month
-            count = Quote.objects.filter(
-                company=self.company,
-                created_at__year=year,
-                created_at__month=month
-            ).count() + 1
-            self.quote_number = f"Q{year}{month:02d}{count:04d}"
+            last_quote = Quote.objects.filter(
+                company=self.company
+            ).order_by('-created_at').first()
+            
+            if last_quote and last_quote.quote_number:
+                try:
+                    last_num = int(last_quote.quote_number.split('-')[-1])
+                    self.quote_number = f"QUO-{last_num + 1:06d}"
+                except:
+                    self.quote_number = f"QUO-000001"
+            else:
+                self.quote_number = f"QUO-000001"
+        
+        # Calculate totals
+        self.calculate_totals()
         super().save(*args, **kwargs)
     
-    @property
-    def is_expired(self):
-        """Check if quote is expired"""
-        if self.valid_until and self.status in ['sent', 'viewed']:
-            from django.utils import timezone
-            return timezone.now().date() > self.valid_until
-        return False
+    def calculate_totals(self):
+        """Calculate quote totals"""
+        # Calculate subtotal from line items
+        subtotal = sum(item.total_price for item in self.items.all())
+        self.subtotal = subtotal
+        
+        # Calculate discount
+        if self.discount_percentage > 0:
+            self.discount_amount = (subtotal * self.discount_percentage) / 100
+        else:
+            self.discount_amount = 0
+        
+        # Calculate tax
+        taxable_amount = subtotal - self.discount_amount
+        self.tax_amount = (taxable_amount * self.tax_rate) / 100
+        
+        # Calculate total
+        self.total_amount = taxable_amount + self.tax_amount
 
 class QuoteItem(CompanyIsolatedModel):
-    """
-    Items in a quote
-    """
+    """Quote line items"""
+    
     quote = models.ForeignKey(
         Quote,
         on_delete=models.CASCADE,
         related_name='items'
     )
     product = models.ForeignKey(
-        'products.Product',
+        Product,
         on_delete=models.CASCADE,
         related_name='quote_items'
     )
-    description = models.TextField(blank=True, help_text="Item description")
+    description = models.TextField(blank=True)
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=1.00
+        default=1,
+        validators=[MinValueValidator(0.01)]
     )
     unit_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Item discount percentage"
-    )
-    discount_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        help_text="Item discount amount"
+        default=0
     )
     total_price = models.DecimalField(
         max_digits=15,
@@ -216,6 +200,7 @@ class QuoteItem(CompanyIsolatedModel):
     )
     
     class Meta:
+        db_table = 'quote_item'
         ordering = ['created_at']
     
     def __str__(self):
@@ -224,15 +209,14 @@ class QuoteItem(CompanyIsolatedModel):
     def save(self, *args, **kwargs):
         # Calculate total price
         base_price = self.quantity * self.unit_price
-        self.discount_amount = (base_price * self.discount_percentage) / 100
-        self.total_price = base_price - self.discount_amount
+        discount_amount = (base_price * self.discount_percentage) / 100
+        self.total_price = base_price - discount_amount
         super().save(*args, **kwargs)
 
 class SalesOrder(CompanyIsolatedModel):
-    """
-    Sales orders
-    """
-    ORDER_STATUS_CHOICES = [
+    """Sales orders"""
+    
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
@@ -244,146 +228,123 @@ class SalesOrder(CompanyIsolatedModel):
     ]
     
     # Basic Information
-    order_number = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique order number"
-    )
-    title = models.CharField(max_length=255, help_text="Order title")
-    description = models.TextField(blank=True, help_text="Order description")
+    order_number = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     
     # Relationships
     account = models.ForeignKey(
-        'crm.Account',
+        Account,
         on_delete=models.CASCADE,
-        related_name='sales_orders',
-        help_text="Associated account"
+        related_name='sales_orders'
     )
     contact = models.ForeignKey(
-        'crm.Contact',
+        Contact,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='sales_orders',
-        help_text="Primary contact"
+        related_name='sales_orders'
     )
-    quote = models.ForeignKey(
-        Quote,
+    owner = models.ForeignKey(
+        User,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
-        related_name='sales_orders',
-        help_text="Source quote"
-    )
-    deal = models.ForeignKey(
-        'deals.Deal',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='sales_orders',
-        help_text="Associated deal"
-    )
-    
-    # Status and Dates
-    status = models.CharField(
-        max_length=20,
-        choices=ORDER_STATUS_CHOICES,
-        default='draft'
-    )
-    order_date = models.DateField(
-        help_text="Order date"
-    )
-    expected_delivery_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Expected delivery date"
-    )
-    actual_delivery_date = models.DateField(
-        null=True,
-        blank=True,
-        help_text="Actual delivery date"
+        related_name='owned_sales_orders'
     )
     
     # Financial Information
     subtotal = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Subtotal before taxes and discounts"
+        default=0
     )
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax rate percentage"
+        default=0
     )
     tax_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax amount"
+        default=0
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount percentage"
+        default=0
     )
     discount_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount amount"
+        default=0
+    )
+    shipping_cost = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        default=0
     )
     total_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Total amount"
+        default=0
     )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
+    currency = models.CharField(max_length=3, default='USD')
     
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
+    # Dates
+    order_date = models.DateField()
+    required_date = models.DateField(
         null=True,
-        related_name='owned_sales_orders',
-        help_text="Order owner"
+        blank=True,
+        help_text="Required delivery date"
+    )
+    shipped_date = models.DateTimeField(null=True, blank=True)
+    delivered_date = models.DateTimeField(null=True, blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
     )
     
     # Shipping Information
-    shipping_address = models.TextField(blank=True, help_text="Shipping address")
-    billing_address = models.TextField(blank=True, help_text="Billing address")
-    shipping_method = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Shipping method"
+    shipping_address = models.JSONField(
+        default=dict,
+        help_text="Shipping address details"
     )
-    tracking_number = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Tracking number"
+    billing_address = models.JSONField(
+        default=dict,
+        help_text="Billing address details"
     )
     
-    # Terms and Conditions
-    terms_conditions = models.TextField(
-        blank=True,
-        help_text="Terms and conditions"
+    # Payment Information
+    payment_terms = models.CharField(
+        max_length=100,
+        default='Net 30',
+        help_text="Payment terms"
     )
-    notes = models.TextField(blank=True, help_text="Internal notes")
+    payment_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('partial', 'Partial'),
+            ('paid', 'Paid'),
+            ('overdue', 'Overdue'),
+        ],
+        default='pending'
+    )
     
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    # Notes
+    notes = models.TextField(blank=True)
     
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'sales_order'
+        ordering = ['-order_date']
         indexes = [
-            models.Index(fields=['company', 'status']),
+            models.Index(fields=['company', 'order_number']),
             models.Index(fields=['company', 'account']),
+            models.Index(fields=['company', 'status']),
             models.Index(fields=['company', 'owner']),
-            models.Index(fields=['company', 'order_date']),
         ]
     
     def __str__(self):
@@ -392,60 +353,79 @@ class SalesOrder(CompanyIsolatedModel):
     def save(self, *args, **kwargs):
         if not self.order_number:
             # Generate order number
-            from django.utils import timezone
-            year = timezone.now().year
-            month = timezone.now().month
-            count = SalesOrder.objects.filter(
-                company=self.company,
-                created_at__year=year,
-                created_at__month=month
-            ).count() + 1
-            self.order_number = f"SO{year}{month:02d}{count:04d}"
+            last_order = SalesOrder.objects.filter(
+                company=self.company
+            ).order_by('-created_at').first()
+            
+            if last_order and last_order.order_number:
+                try:
+                    last_num = int(last_order.order_number.split('-')[-1])
+                    self.order_number = f"ORD-{last_num + 1:06d}"
+                except:
+                    self.order_number = f"ORD-000001"
+            else:
+                self.order_number = f"ORD-000001"
+        
+        # Calculate totals
+        self.calculate_totals()
         super().save(*args, **kwargs)
+    
+    def calculate_totals(self):
+        """Calculate order totals"""
+        # Calculate subtotal from line items
+        subtotal = sum(item.total_price for item in self.items.all())
+        self.subtotal = subtotal
+        
+        # Calculate discount
+        if self.discount_percentage > 0:
+            self.discount_amount = (subtotal * self.discount_percentage) / 100
+        else:
+            self.discount_amount = 0
+        
+        # Calculate tax
+        taxable_amount = subtotal - self.discount_amount
+        self.tax_amount = (taxable_amount * self.tax_rate) / 100
+        
+        # Calculate total
+        self.total_amount = taxable_amount + self.tax_amount + self.shipping_cost
 
 class SalesOrderItem(CompanyIsolatedModel):
-    """
-    Items in a sales order
-    """
+    """Sales order line items"""
+    
     order = models.ForeignKey(
         SalesOrder,
         on_delete=models.CASCADE,
         related_name='items'
     )
     product = models.ForeignKey(
-        'products.Product',
+        Product,
         on_delete=models.CASCADE,
         related_name='sales_order_items'
     )
-    description = models.TextField(blank=True, help_text="Item description")
+    description = models.TextField(blank=True)
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=1.00
+        default=1,
+        validators=[MinValueValidator(0.01)]
     )
     unit_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Item discount percentage"
-    )
-    discount_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        help_text="Item discount amount"
+        default=0
     )
     total_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2,
-        help_text="Total price after discount"
+        decimal_places=2
     )
     
     class Meta:
+        db_table = 'sales_order_item'
         ordering = ['created_at']
     
     def __str__(self):
@@ -454,15 +434,14 @@ class SalesOrderItem(CompanyIsolatedModel):
     def save(self, *args, **kwargs):
         # Calculate total price
         base_price = self.quantity * self.unit_price
-        self.discount_amount = (base_price * self.discount_percentage) / 100
-        self.total_price = base_price - self.discount_amount
+        discount_amount = (base_price * self.discount_percentage) / 100
+        self.total_price = base_price - discount_amount
         super().save(*args, **kwargs)
 
 class Invoice(CompanyIsolatedModel):
-    """
-    Sales invoices
-    """
-    INVOICE_STATUS_CHOICES = [
+    """Sales invoices"""
+    
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('sent', 'Sent'),
         ('viewed', 'Viewed'),
@@ -472,151 +451,110 @@ class Invoice(CompanyIsolatedModel):
     ]
     
     # Basic Information
-    invoice_number = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique invoice number"
-    )
-    title = models.CharField(max_length=255, help_text="Invoice title")
-    description = models.TextField(blank=True, help_text="Invoice description")
+    invoice_number = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     
     # Relationships
     account = models.ForeignKey(
-        'crm.Account',
+        Account,
         on_delete=models.CASCADE,
-        related_name='invoices',
-        help_text="Associated account"
+        related_name='invoices'
     )
     contact = models.ForeignKey(
-        'crm.Contact',
+        Contact,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='invoices',
-        help_text="Primary contact"
+        related_name='invoices'
+    )
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_invoices'
     )
     sales_order = models.ForeignKey(
         SalesOrder,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='invoices',
-        help_text="Source sales order"
-    )
-    deal = models.ForeignKey(
-        'deals.Deal',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='invoices',
-        help_text="Associated deal"
-    )
-    
-    # Status and Dates
-    status = models.CharField(
-        max_length=20,
-        choices=INVOICE_STATUS_CHOICES,
-        default='draft'
-    )
-    invoice_date = models.DateField(
-        help_text="Invoice date"
-    )
-    due_date = models.DateField(
-        help_text="Payment due date"
-    )
-    sent_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When invoice was sent"
-    )
-    viewed_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When invoice was viewed"
-    )
-    paid_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When invoice was paid"
+        related_name='invoices'
     )
     
     # Financial Information
     subtotal = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Subtotal before taxes and discounts"
+        default=0
     )
     tax_rate = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax rate percentage"
+        default=0
     )
     tax_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Tax amount"
+        default=0
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount percentage"
+        default=0
     )
     discount_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Discount amount"
+        default=0
     )
     total_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Total amount"
+        default=0
     )
     paid_amount = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Amount paid"
+        default=0
     )
-    balance_amount = models.DecimalField(
+    balance_due = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        default=0.00,
-        help_text="Outstanding balance"
+        default=0
     )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
+    currency = models.CharField(max_length=3, default='USD')
     
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='owned_invoices',
-        help_text="Invoice owner"
+    # Dates
+    invoice_date = models.DateField()
+    due_date = models.DateField()
+    sent_date = models.DateTimeField(null=True, blank=True)
+    viewed_date = models.DateTimeField(null=True, blank=True)
+    paid_date = models.DateTimeField(null=True, blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
     )
     
-    # Terms and Conditions
-    terms_conditions = models.TextField(
-        blank=True,
-        help_text="Terms and conditions"
+    # Payment Information
+    payment_terms = models.CharField(
+        max_length=100,
+        default='Net 30'
     )
-    notes = models.TextField(blank=True, help_text="Internal notes")
     
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    # Notes
+    notes = models.TextField(blank=True)
     
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'invoice'
+        ordering = ['-invoice_date']
         indexes = [
-            models.Index(fields=['company', 'status']),
+            models.Index(fields=['company', 'invoice_number']),
             models.Index(fields=['company', 'account']),
-            models.Index(fields=['company', 'owner']),
+            models.Index(fields=['company', 'status']),
             models.Index(fields=['company', 'due_date']),
         ]
     
@@ -626,71 +564,82 @@ class Invoice(CompanyIsolatedModel):
     def save(self, *args, **kwargs):
         if not self.invoice_number:
             # Generate invoice number
-            from django.utils import timezone
-            year = timezone.now().year
-            month = timezone.now().month
-            count = Invoice.objects.filter(
-                company=self.company,
-                created_at__year=year,
-                created_at__month=month
-            ).count() + 1
-            self.invoice_number = f"INV{year}{month:02d}{count:04d}"
+            last_invoice = Invoice.objects.filter(
+                company=self.company
+            ).order_by('-created_at').first()
+            
+            if last_invoice and last_invoice.invoice_number:
+                try:
+                    last_num = int(last_invoice.invoice_number.split('-')[-1])
+                    self.invoice_number = f"INV-{last_num + 1:06d}"
+                except:
+                    self.invoice_number = f"INV-000001"
+            else:
+                self.invoice_number = f"INV-000001"
         
-        # Calculate balance
-        self.balance_amount = self.total_amount - self.paid_amount
+        # Calculate totals
+        self.calculate_totals()
         super().save(*args, **kwargs)
     
-    @property
-    def is_overdue(self):
-        """Check if invoice is overdue"""
-        if self.status in ['sent', 'viewed'] and self.due_date:
-            from django.utils import timezone
-            return timezone.now().date() > self.due_date
-        return False
+    def calculate_totals(self):
+        """Calculate invoice totals"""
+        # Calculate subtotal from line items
+        subtotal = sum(item.total_price for item in self.items.all())
+        self.subtotal = subtotal
+        
+        # Calculate discount
+        if self.discount_percentage > 0:
+            self.discount_amount = (subtotal * self.discount_percentage) / 100
+        else:
+            self.discount_amount = 0
+        
+        # Calculate tax
+        taxable_amount = subtotal - self.discount_amount
+        self.tax_amount = (taxable_amount * self.tax_rate) / 100
+        
+        # Calculate total
+        self.total_amount = taxable_amount + self.tax_amount
+        
+        # Calculate balance due
+        self.balance_due = self.total_amount - self.paid_amount
 
 class InvoiceItem(CompanyIsolatedModel):
-    """
-    Items in an invoice
-    """
+    """Invoice line items"""
+    
     invoice = models.ForeignKey(
         Invoice,
         on_delete=models.CASCADE,
         related_name='items'
     )
     product = models.ForeignKey(
-        'products.Product',
+        Product,
         on_delete=models.CASCADE,
         related_name='invoice_items'
     )
-    description = models.TextField(blank=True, help_text="Item description")
+    description = models.TextField(blank=True)
     quantity = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=1.00
+        default=1,
+        validators=[MinValueValidator(0.01)]
     )
     unit_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2
+        decimal_places=2,
+        validators=[MinValueValidator(0)]
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=0.00,
-        help_text="Item discount percentage"
-    )
-    discount_amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        default=0.00,
-        help_text="Item discount amount"
+        default=0
     )
     total_price = models.DecimalField(
         max_digits=15,
-        decimal_places=2,
-        help_text="Total price after discount"
+        decimal_places=2
     )
     
     class Meta:
+        db_table = 'invoice_item'
         ordering = ['created_at']
     
     def __str__(self):
@@ -699,109 +648,6 @@ class InvoiceItem(CompanyIsolatedModel):
     def save(self, *args, **kwargs):
         # Calculate total price
         base_price = self.quantity * self.unit_price
-        self.discount_amount = (base_price * self.discount_percentage) / 100
-        self.total_price = base_price - self.discount_amount
-        super().save(*args, **kwargs)
-
-class Payment(CompanyIsolatedModel):
-    """
-    Payment records
-    """
-    PAYMENT_METHODS = [
-        ('cash', 'Cash'),
-        ('check', 'Check'),
-        ('credit_card', 'Credit Card'),
-        ('bank_transfer', 'Bank Transfer'),
-        ('paypal', 'PayPal'),
-        ('stripe', 'Stripe'),
-        ('other', 'Other'),
-    ]
-    
-    PAYMENT_STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('processing', 'Processing'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('cancelled', 'Cancelled'),
-        ('refunded', 'Refunded'),
-    ]
-    
-    # Basic Information
-    payment_number = models.CharField(
-        max_length=50,
-        unique=True,
-        help_text="Unique payment number"
-    )
-    amount = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        help_text="Payment amount"
-    )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency code")
-    
-    # Relationships
-    invoice = models.ForeignKey(
-        Invoice,
-        on_delete=models.CASCADE,
-        related_name='payments',
-        help_text="Associated invoice"
-    )
-    account = models.ForeignKey(
-        'crm.Account',
-        on_delete=models.CASCADE,
-        related_name='payments',
-        help_text="Associated account"
-    )
-    
-    # Payment Details
-    payment_method = models.CharField(
-        max_length=20,
-        choices=PAYMENT_METHODS,
-        help_text="Payment method"
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=PAYMENT_STATUS_CHOICES,
-        default='pending'
-    )
-    payment_date = models.DateTimeField(
-        help_text="Payment date and time"
-    )
-    reference_number = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="Payment reference number"
-    )
-    
-    # Notes
-    notes = models.TextField(blank=True, help_text="Payment notes")
-    
-    # Metadata
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        ordering = ['-payment_date']
-        indexes = [
-            models.Index(fields=['company', 'status']),
-            models.Index(fields=['company', 'invoice']),
-            models.Index(fields=['company', 'account']),
-            models.Index(fields=['company', 'payment_date']),
-        ]
-    
-    def __str__(self):
-        return f"{self.payment_number} - {self.amount} {self.currency}"
-    
-    def save(self, *args, **kwargs):
-        if not self.payment_number:
-            # Generate payment number
-            from django.utils import timezone
-            year = timezone.now().year
-            month = timezone.now().month
-            count = Payment.objects.filter(
-                company=self.company,
-                created_at__year=year,
-                created_at__month=month
-            ).count() + 1
-            self.payment_number = f"PAY{year}{month:02d}{count:04d}"
+        discount_amount = (base_price * self.discount_percentage) / 100
+        self.total_price = base_price - discount_amount
         super().save(*args, **kwargs)

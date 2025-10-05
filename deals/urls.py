@@ -1,17 +1,12 @@
 # deals/urls.py
+# Deals URL patterns
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from deals.views import (
-    PipelineStageViewSet, DealViewSet, DealProductViewSet,
-    DealActivityViewSet, DealForecastViewSet
-)
+from . import views
 
 router = DefaultRouter()
-router.register(r'pipeline-stages', PipelineStageViewSet, basename='pipeline-stage')
-router.register(r'deals', DealViewSet, basename='deal')
-router.register(r'deal-products', DealProductViewSet, basename='deal-product')
-router.register(r'deal-activities', DealActivityViewSet, basename='deal-activity')
-router.register(r'deal-forecasts', DealForecastViewSet, basename='deal-forecast')
+router.register(r'deals', views.DealViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

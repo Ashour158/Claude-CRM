@@ -1,169 +1,148 @@
 # marketing/models.py
+# Marketing and campaign management models
+
 from django.db import models
 from django.contrib.auth import get_user_model
 from core.models import CompanyIsolatedModel
+from crm.models import Lead, Contact, Account
 import uuid
 
 User = get_user_model()
 
 class Campaign(CompanyIsolatedModel):
-    """
-    Marketing campaigns
-    """
+    """Marketing campaigns"""
+    
     CAMPAIGN_TYPES = [
         ('email', 'Email Campaign'),
-        ('social', 'Social Media'),
+        ('social_media', 'Social Media'),
         ('content', 'Content Marketing'),
-        ('paid', 'Paid Advertising'),
-        ('event', 'Event Marketing'),
+        ('paid_ads', 'Paid Advertising'),
+        ('events', 'Events'),
         ('webinar', 'Webinar'),
         ('other', 'Other'),
     ]
     
-    CAMPAIGN_STATUS_CHOICES = [
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('scheduled', 'Scheduled'),
-        ('running', 'Running'),
+        ('active', 'Active'),
         ('paused', 'Paused'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     ]
     
     # Basic Information
-    name = models.CharField(max_length=255, help_text="Campaign name")
-    description = models.TextField(blank=True, help_text="Campaign description")
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     campaign_type = models.CharField(
         max_length=20,
         choices=CAMPAIGN_TYPES,
-        help_text="Type of campaign"
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=CAMPAIGN_STATUS_CHOICES,
-        default='draft'
+        default='email'
     )
     
     # Campaign Details
-    start_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Campaign start date"
-    )
-    end_date = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Campaign end date"
-    )
+    objective = models.TextField(blank=True, help_text="Campaign objective")
+    target_audience = models.TextField(blank=True, help_text="Target audience description")
     budget = models.DecimalField(
         max_digits=15,
         decimal_places=2,
         null=True,
-        blank=True,
-        help_text="Campaign budget"
+        blank=True
     )
-    currency = models.CharField(max_length=3, default='USD', help_text="Currency")
+    currency = models.CharField(max_length=3, default='USD')
     
-    # Assignment
+    # Dates
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField(null=True, blank=True)
+    created_date = models.DateTimeField(auto_now_add=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
+    )
+    
+    # Owner
     owner = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='owned_campaigns',
-        help_text="Campaign owner"
+        related_name='owned_campaigns'
     )
     
-    # Metrics
-    target_audience_size = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Target audience size"
-    )
-    actual_reach = models.PositiveIntegerField(
-        default=0,
-        help_text="Actual reach"
-    )
-    clicks = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of clicks"
-    )
-    conversions = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of conversions"
-    )
-    cost_per_click = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Cost per click"
-    )
-    cost_per_conversion = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Cost per conversion"
-    )
+    # Performance Metrics
+    total_sent = models.IntegerField(default=0)
+    total_delivered = models.IntegerField(default=0)
+    total_opened = models.IntegerField(default=0)
+    total_clicked = models.IntegerField(default=0)
+    total_converted = models.IntegerField(default=0)
     
-    # Additional Information
-    notes = models.TextField(blank=True, help_text="Campaign notes")
-    tags = models.ManyToManyField('crm.Tag', blank=True, related_name='campaigns')
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
+    # Rates
+    delivery_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Delivery rate percentage"
+    )
+    open_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Open rate percentage"
+    )
+    click_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Click rate percentage"
+    )
+    conversion_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text="Conversion rate percentage"
+    )
     
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'campaign'
+        ordering = ['-created_date']
         indexes = [
-            models.Index(fields=['company', 'status']),
+            models.Index(fields=['company', 'name']),
             models.Index(fields=['company', 'campaign_type']),
+            models.Index(fields=['company', 'status']),
             models.Index(fields=['company', 'owner']),
-            models.Index(fields=['company', 'start_date']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.get_campaign_type_display()})"
+        return self.name
     
-    @property
-    def click_through_rate(self):
-        """Calculate click-through rate"""
-        if self.actual_reach > 0:
-            return (self.clicks / self.actual_reach) * 100
-        return 0
-    
-    @property
-    def conversion_rate(self):
-        """Calculate conversion rate"""
-        if self.clicks > 0:
-            return (self.conversions / self.clicks) * 100
-        return 0
-    
-    @property
-    def roi(self):
-        """Calculate return on investment"""
-        if self.budget and self.budget > 0:
-            # Assuming each conversion has a value of $100
-            revenue = self.conversions * 100
-            return ((revenue - float(self.budget)) / float(self.budget)) * 100
-        return 0
+    def calculate_rates(self):
+        """Calculate campaign performance rates"""
+        if self.total_sent > 0:
+            self.delivery_rate = (self.total_delivered / self.total_sent) * 100
+        if self.total_delivered > 0:
+            self.open_rate = (self.total_opened / self.total_delivered) * 100
+        if self.total_opened > 0:
+            self.click_rate = (self.total_clicked / self.total_opened) * 100
+        if self.total_clicked > 0:
+            self.conversion_rate = (self.total_converted / self.total_clicked) * 100
 
 class EmailTemplate(CompanyIsolatedModel):
-    """
-    Email templates for marketing campaigns
-    """
+    """Email templates for campaigns"""
+    
     TEMPLATE_TYPES = [
         ('welcome', 'Welcome Email'),
         ('newsletter', 'Newsletter'),
         ('promotional', 'Promotional'),
         ('follow_up', 'Follow Up'),
-        ('abandoned_cart', 'Abandoned Cart'),
-        ('birthday', 'Birthday'),
-        ('anniversary', 'Anniversary'),
+        ('nurture', 'Nurture Sequence'),
         ('custom', 'Custom'),
     ]
     
     # Basic Information
-    name = models.CharField(max_length=255, help_text="Template name")
-    subject = models.CharField(max_length=255, help_text="Email subject")
+    name = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
     template_type = models.CharField(
         max_length=20,
         choices=TEMPLATE_TYPES,
@@ -171,52 +150,110 @@ class EmailTemplate(CompanyIsolatedModel):
     )
     
     # Content
-    html_content = models.TextField(help_text="HTML content")
-    text_content = models.TextField(
+    html_content = models.TextField(blank=True)
+    text_content = models.TextField(blank=True)
+    preview_text = models.CharField(
+        max_length=255,
         blank=True,
-        help_text="Plain text content"
+        help_text="Email preview text"
     )
     
-    # Design
-    header_image_url = models.URLField(
-        blank=True,
-        help_text="Header image URL"
-    )
-    footer_text = models.TextField(
-        blank=True,
-        help_text="Footer text"
-    )
+    # Template Settings
+    is_active = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=False)
     
-    # Assignment
+    # Owner
     owner = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='owned_email_templates',
-        help_text="Template owner"
+        related_name='owned_email_templates'
     )
-    
-    # Usage Statistics
-    usage_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of times used"
-    )
-    
-    # Additional Information
-    is_active = models.BooleanField(default=True)
     
     class Meta:
+        db_table = 'email_template'
         ordering = ['name']
-        unique_together = ('company', 'name')
     
     def __str__(self):
-        return f"{self.name} ({self.get_template_type_display()})"
+        return self.name
+
+class MarketingList(CompanyIsolatedModel):
+    """Marketing lists for campaigns"""
+    
+    LIST_TYPES = [
+        ('static', 'Static List'),
+        ('dynamic', 'Dynamic List'),
+        ('segment', 'Segment'),
+    ]
+    
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    list_type = models.CharField(
+        max_length=20,
+        choices=LIST_TYPES,
+        default='static'
+    )
+    
+    # List Configuration
+    criteria = models.JSONField(
+        default=dict,
+        help_text="List criteria for dynamic lists"
+    )
+    filters = models.JSONField(
+        default=dict,
+        help_text="List filters"
+    )
+    
+    # Statistics
+    total_contacts = models.IntegerField(default=0)
+    active_contacts = models.IntegerField(default=0)
+    unsubscribed_contacts = models.IntegerField(default=0)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_marketing_lists'
+    )
+    
+    class Meta:
+        db_table = 'marketing_list'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+class MarketingListContact(CompanyIsolatedModel):
+    """Contacts in marketing lists"""
+    
+    marketing_list = models.ForeignKey(
+        MarketingList,
+        on_delete=models.CASCADE,
+        related_name='list_contacts'
+    )
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name='marketing_lists'
+    )
+    added_date = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    is_unsubscribed = models.BooleanField(default=False)
+    unsubscribed_date = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'marketing_list_contact'
+        unique_together = ('marketing_list', 'contact')
+    
+    def __str__(self):
+        return f"{self.marketing_list.name} - {self.contact.full_name}"
 
 class EmailCampaign(CompanyIsolatedModel):
-    """
-    Email marketing campaigns
-    """
-    CAMPAIGN_STATUS_CHOICES = [
+    """Email campaigns"""
+    
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
         ('scheduled', 'Scheduled'),
         ('sending', 'Sending'),
@@ -226,401 +263,248 @@ class EmailCampaign(CompanyIsolatedModel):
     ]
     
     # Basic Information
-    name = models.CharField(max_length=255, help_text="Campaign name")
-    subject = models.CharField(max_length=255, help_text="Email subject")
-    status = models.CharField(
-        max_length=20,
-        choices=CAMPAIGN_STATUS_CHOICES,
-        default='draft'
-    )
+    name = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     
-    # Template
+    # Campaign Details
+    campaign = models.ForeignKey(
+        Campaign,
+        on_delete=models.CASCADE,
+        related_name='email_campaigns'
+    )
     template = models.ForeignKey(
         EmailTemplate,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='email_campaigns',
-        help_text="Email template"
+        related_name='email_campaigns'
+    )
+    marketing_list = models.ForeignKey(
+        MarketingList,
+        on_delete=models.CASCADE,
+        related_name='email_campaigns'
     )
     
     # Content
-    html_content = models.TextField(help_text="HTML content")
-    text_content = models.TextField(
-        blank=True,
-        help_text="Plain text content"
-    )
+    html_content = models.TextField(blank=True)
+    text_content = models.TextField(blank=True)
+    preview_text = models.CharField(max_length=255, blank=True)
     
     # Scheduling
-    scheduled_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Scheduled send time"
-    )
-    sent_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Actual send time"
+    send_date = models.DateTimeField(null=True, blank=True)
+    timezone = models.CharField(max_length=50, default='UTC')
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
     )
     
-    # Assignment
+    # Performance Metrics
+    total_sent = models.IntegerField(default=0)
+    total_delivered = models.IntegerField(default=0)
+    total_opened = models.IntegerField(default=0)
+    total_clicked = models.IntegerField(default=0)
+    total_bounced = models.IntegerField(default=0)
+    total_unsubscribed = models.IntegerField(default=0)
+    
+    # Owner
     owner = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='owned_email_campaigns',
-        help_text="Campaign owner"
+        related_name='owned_email_campaigns'
     )
-    
-    # Metrics
-    total_recipients = models.PositiveIntegerField(
-        default=0,
-        help_text="Total recipients"
-    )
-    sent_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of emails sent"
-    )
-    delivered_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of emails delivered"
-    )
-    opened_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of emails opened"
-    )
-    clicked_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of clicks"
-    )
-    unsubscribed_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of unsubscribes"
-    )
-    bounced_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of bounces"
-    )
-    
-    # Additional Information
-    notes = models.TextField(blank=True, help_text="Campaign notes")
-    is_active = models.BooleanField(default=True)
     
     class Meta:
+        db_table = 'email_campaign'
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['company', 'status']),
-            models.Index(fields=['company', 'owner']),
-            models.Index(fields=['company', 'scheduled_at']),
-        ]
     
     def __str__(self):
-        return f"{self.name} - {self.subject}"
+        return self.name
+
+class EmailActivity(CompanyIsolatedModel):
+    """Email activity tracking"""
     
-    @property
-    def open_rate(self):
-        """Calculate open rate"""
-        if self.delivered_count > 0:
-            return (self.opened_count / self.delivered_count) * 100
-        return 0
+    ACTIVITY_TYPES = [
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('opened', 'Opened'),
+        ('clicked', 'Clicked'),
+        ('bounced', 'Bounced'),
+        ('unsubscribed', 'Unsubscribed'),
+        ('complained', 'Complained'),
+    ]
     
-    @property
-    def click_rate(self):
-        """Calculate click rate"""
-        if self.delivered_count > 0:
-            return (self.clicked_count / self.delivered_count) * 100
-        return 0
+    email_campaign = models.ForeignKey(
+        EmailCampaign,
+        on_delete=models.CASCADE,
+        related_name='activities'
+    )
+    contact = models.ForeignKey(
+        Contact,
+        on_delete=models.CASCADE,
+        related_name='email_activities'
+    )
+    activity_type = models.CharField(
+        max_length=20,
+        choices=ACTIVITY_TYPES
+    )
+    activity_date = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    link_url = models.URLField(blank=True, help_text="Clicked link URL")
     
-    @property
-    def bounce_rate(self):
-        """Calculate bounce rate"""
-        if self.sent_count > 0:
-            return (self.bounced_count / self.sent_count) * 100
-        return 0
+    class Meta:
+        db_table = 'email_activity'
+        ordering = ['-activity_date']
+    
+    def __str__(self):
+        return f"{self.email_campaign.name} - {self.contact.full_name} - {self.get_activity_type_display()}"
 
 class LeadScore(CompanyIsolatedModel):
-    """
-    Lead scoring rules and criteria
-    """
-    SCORE_TYPES = [
-        ('behavioral', 'Behavioral'),
-        ('demographic', 'Demographic'),
-        ('firmographic', 'Firmographic'),
-        ('engagement', 'Engagement'),
+    """Lead scoring configuration and history"""
+    
+    lead = models.ForeignKey(
+        Lead,
+        on_delete=models.CASCADE,
+        related_name='scores'
+    )
+    score = models.IntegerField(
+        default=0,
+        help_text="Lead score (0-100)"
+    )
+    score_date = models.DateTimeField(auto_now_add=True)
+    score_reason = models.TextField(blank=True, help_text="Reason for score change")
+    
+    # Score Factors
+    email_score = models.IntegerField(default=0)
+    phone_score = models.IntegerField(default=0)
+    company_score = models.IntegerField(default=0)
+    industry_score = models.IntegerField(default=0)
+    revenue_score = models.IntegerField(default=0)
+    budget_score = models.IntegerField(default=0)
+    activity_score = models.IntegerField(default=0)
+    engagement_score = models.IntegerField(default=0)
+    
+    class Meta:
+        db_table = 'lead_score'
+        ordering = ['-score_date']
+    
+    def __str__(self):
+        return f"{self.lead.full_name} - Score: {self.score}"
+
+class MarketingAutomation(CompanyIsolatedModel):
+    """Marketing automation workflows"""
+    
+    WORKFLOW_TYPES = [
+        ('welcome', 'Welcome Series'),
+        ('nurture', 'Nurture Sequence'),
+        ('abandoned_cart', 'Abandoned Cart'),
+        ('re_engagement', 'Re-engagement'),
+        ('birthday', 'Birthday'),
+        ('anniversary', 'Anniversary'),
         ('custom', 'Custom'),
     ]
     
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('active', 'Active'),
+        ('paused', 'Paused'),
+        ('completed', 'Completed'),
+    ]
+    
     # Basic Information
-    name = models.CharField(max_length=255, help_text="Score rule name")
-    description = models.TextField(blank=True, help_text="Score rule description")
-    score_type = models.CharField(
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    workflow_type = models.CharField(
         max_length=20,
-        choices=SCORE_TYPES,
-        help_text="Type of scoring"
+        choices=WORKFLOW_TYPES,
+        default='custom'
     )
     
-    # Scoring Criteria
-    criteria = models.JSONField(
+    # Workflow Configuration
+    trigger_conditions = models.JSONField(
         default=dict,
-        help_text="Scoring criteria configuration"
+        help_text="Workflow trigger conditions"
     )
-    points = models.IntegerField(
-        help_text="Points to add/subtract"
-    )
-    
-    # Conditions
-    conditions = models.JSONField(
-        default=dict,
-        help_text="Conditions for applying this score"
-    )
-    
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='owned_lead_scores',
-        help_text="Score rule owner"
+    steps = models.JSONField(
+        default=list,
+        help_text="Workflow steps"
     )
     
     # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
+    )
     is_active = models.BooleanField(default=True)
     
-    class Meta:
-        ordering = ['name']
-        unique_together = ('company', 'name')
+    # Statistics
+    total_triggered = models.IntegerField(default=0)
+    total_completed = models.IntegerField(default=0)
+    total_dropped = models.IntegerField(default=0)
     
-    def __str__(self):
-        return f"{self.name} ({self.points} points)"
-
-class MarketingList(CompanyIsolatedModel):
-    """
-    Marketing lists for campaigns
-    """
-    LIST_TYPES = [
-        ('static', 'Static List'),
-        ('dynamic', 'Dynamic List'),
-        ('segmented', 'Segmented List'),
-    ]
-    
-    # Basic Information
-    name = models.CharField(max_length=255, help_text="List name")
-    description = models.TextField(blank=True, help_text="List description")
-    list_type = models.CharField(
-        max_length=20,
-        choices=LIST_TYPES,
-        default='static'
-    )
-    
-    # Criteria for dynamic lists
-    criteria = models.JSONField(
-        default=dict,
-        help_text="Criteria for dynamic lists"
-    )
-    
-    # Assignment
+    # Owner
     owner = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='owned_marketing_lists',
-        help_text="List owner"
+        related_name='owned_automations'
     )
-    
-    # Statistics
-    member_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Number of members"
-    )
-    
-    # Additional Information
-    tags = models.ManyToManyField('crm.Tag', blank=True, related_name='marketing_lists')
-    is_active = models.BooleanField(default=True)
     
     class Meta:
+        db_table = 'marketing_automation'
         ordering = ['name']
-        unique_together = ('company', 'name')
     
     def __str__(self):
-        return f"{self.name} ({self.member_count} members)"
+        return self.name
 
-class MarketingListMember(CompanyIsolatedModel):
-    """
-    Members of marketing lists
-    """
-    list = models.ForeignKey(
-        MarketingList,
+class MarketingAutomationExecution(CompanyIsolatedModel):
+    """Marketing automation execution tracking"""
+    
+    automation = models.ForeignKey(
+        MarketingAutomation,
         on_delete=models.CASCADE,
-        related_name='members'
+        related_name='executions'
     )
     contact = models.ForeignKey(
-        'crm.Contact',
+        Contact,
         on_delete=models.CASCADE,
-        related_name='marketing_list_memberships'
+        related_name='automation_executions'
     )
-    subscribed_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When contact was added to list"
-    )
-    unsubscribed_at = models.DateTimeField(
+    lead = models.ForeignKey(
+        Lead,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
-        help_text="When contact unsubscribed"
+        related_name='automation_executions'
     )
-    is_active = models.BooleanField(default=True)
     
-    class Meta:
-        unique_together = ('list', 'contact')
-        ordering = ['-subscribed_at']
+    # Execution Details
+    triggered_date = models.DateTimeField(auto_now_add=True)
+    completed_date = models.DateTimeField(null=True, blank=True)
+    current_step = models.IntegerField(default=0)
+    total_steps = models.IntegerField(default=0)
     
-    def __str__(self):
-        return f"{self.contact.full_name} - {self.list.name}"
-
-class MarketingEvent(CompanyIsolatedModel):
-    """
-    Marketing events and activities
-    """
-    EVENT_TYPES = [
-        ('email_sent', 'Email Sent'),
-        ('email_opened', 'Email Opened'),
-        ('email_clicked', 'Email Clicked'),
-        ('email_bounced', 'Email Bounced'),
-        ('unsubscribed', 'Unsubscribed'),
-        ('form_submitted', 'Form Submitted'),
-        ('page_visited', 'Page Visited'),
-        ('download', 'Download'),
-        ('webinar_attended', 'Webinar Attended'),
-        ('event_attended', 'Event Attended'),
-        ('other', 'Other'),
-    ]
-    
-    # Basic Information
-    event_type = models.CharField(
+    # Status
+    status = models.CharField(
         max_length=20,
-        choices=EVENT_TYPES,
-        help_text="Type of marketing event"
-    )
-    event_name = models.CharField(
-        max_length=255,
-        help_text="Event name"
-    )
-    description = models.TextField(blank=True, help_text="Event description")
-    
-    # Related Objects
-    contact = models.ForeignKey(
-        'crm.Contact',
-        on_delete=models.CASCADE,
-        related_name='marketing_events'
-    )
-    campaign = models.ForeignKey(
-        Campaign,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='events'
-    )
-    email_campaign = models.ForeignKey(
-        EmailCampaign,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='events'
-    )
-    
-    # Event Details
-    event_date = models.DateTimeField(help_text="Event date and time")
-    event_data = models.JSONField(
-        default=dict,
-        help_text="Additional event data"
-    )
-    
-    # Assignment
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='created_marketing_events'
+        choices=[
+            ('running', 'Running'),
+            ('completed', 'Completed'),
+            ('paused', 'Paused'),
+            ('stopped', 'Stopped'),
+        ],
+        default='running'
     )
     
     class Meta:
-        ordering = ['-event_date']
-        indexes = [
-            models.Index(fields=['company', 'event_type']),
-            models.Index(fields=['company', 'contact']),
-            models.Index(fields=['company', 'event_date']),
-        ]
+        db_table = 'marketing_automation_execution'
+        ordering = ['-triggered_date']
     
     def __str__(self):
-        return f"{self.event_name} - {self.contact.full_name}"
-
-class MarketingAnalytics(CompanyIsolatedModel):
-    """
-    Marketing analytics and metrics
-    """
-    # Basic Information
-    name = models.CharField(max_length=255, help_text="Analytics name")
-    description = models.TextField(blank=True, help_text="Analytics description")
-    
-    # Metrics
-    total_campaigns = models.PositiveIntegerField(default=0)
-    active_campaigns = models.PositiveIntegerField(default=0)
-    total_emails_sent = models.PositiveIntegerField(default=0)
-    total_emails_delivered = models.PositiveIntegerField(default=0)
-    total_emails_opened = models.PositiveIntegerField(default=0)
-    total_clicks = models.PositiveIntegerField(default=0)
-    total_conversions = models.PositiveIntegerField(default=0)
-    total_unsubscribes = models.PositiveIntegerField(default=0)
-    total_bounces = models.PositiveIntegerField(default=0)
-    
-    # Calculated Metrics
-    overall_open_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0.00,
-        help_text="Overall open rate percentage"
-    )
-    overall_click_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0.00,
-        help_text="Overall click rate percentage"
-    )
-    overall_bounce_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0.00,
-        help_text="Overall bounce rate percentage"
-    )
-    overall_conversion_rate = models.DecimalField(
-        max_digits=5,
-        decimal_places=2,
-        default=0.00,
-        help_text="Overall conversion rate percentage"
-    )
-    
-    # Date Range
-    start_date = models.DateField(help_text="Analytics start date")
-    end_date = models.DateField(help_text="Analytics end date")
-    
-    # Additional Information
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-        unique_together = ('company', 'name', 'start_date', 'end_date')
-    
-    def __str__(self):
-        return f"{self.name} ({self.start_date} - {self.end_date})"
-    
-    def calculate_metrics(self):
-        """Calculate all metrics"""
-        if self.total_emails_delivered > 0:
-            self.overall_open_rate = (self.total_emails_opened / self.total_emails_delivered) * 100
-            self.overall_click_rate = (self.total_clicks / self.total_emails_delivered) * 100
-        
-        if self.total_emails_sent > 0:
-            self.overall_bounce_rate = (self.total_bounces / self.total_emails_sent) * 100
-        
-        if self.total_emails_delivered > 0:
-            self.overall_conversion_rate = (self.total_conversions / self.total_emails_delivered) * 100
+        return f"{self.automation.name} - {self.contact.full_name}"

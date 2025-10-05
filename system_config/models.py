@@ -1,4 +1,6 @@
 # system_config/models.py
+# System configuration and settings models
+
 from django.db import models
 from django.contrib.auth import get_user_model
 from core.models import CompanyIsolatedModel
@@ -6,491 +8,490 @@ import uuid
 
 User = get_user_model()
 
-class CustomField(CompanyIsolatedModel):
-    """
-    Custom fields for various models
-    """
-    FIELD_TYPES = [
-        ('text', 'Text'),
-        ('textarea', 'Text Area'),
-        ('number', 'Number'),
-        ('decimal', 'Decimal'),
-        ('boolean', 'Boolean'),
-        ('date', 'Date'),
-        ('datetime', 'DateTime'),
-        ('time', 'Time'),
-        ('email', 'Email'),
-        ('url', 'URL'),
-        ('phone', 'Phone'),
-        ('select', 'Select'),
-        ('multiselect', 'Multi-Select'),
-        ('radio', 'Radio'),
-        ('checkbox', 'Checkbox'),
-        ('file', 'File'),
-        ('image', 'Image'),
-    ]
+class SystemSetting(CompanyIsolatedModel):
+    """System-wide settings"""
     
-    # Basic Information
-    name = models.CharField(max_length=255, help_text="Field name")
-    label = models.CharField(max_length=255, help_text="Display label")
-    field_type = models.CharField(
-        max_length=20,
-        choices=FIELD_TYPES,
-        help_text="Field type"
-    )
-    description = models.TextField(blank=True, help_text="Field description")
-    
-    # Field Configuration
-    model_name = models.CharField(
-        max_length=100,
-        help_text="Model this field belongs to (e.g., 'Contact', 'Account')"
-    )
-    is_required = models.BooleanField(default=False, help_text="Is field required?")
-    is_unique = models.BooleanField(default=False, help_text="Is field unique?")
-    default_value = models.TextField(blank=True, help_text="Default value")
-    
-    # Field Options (for select, radio, checkbox fields)
-    options = models.JSONField(
-        default=list,
-        blank=True,
-        help_text="Options for select/radio/checkbox fields"
-    )
-    
-    # Validation
-    min_length = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Minimum length for text fields"
-    )
-    max_length = models.PositiveIntegerField(
-        null=True,
-        blank=True,
-        help_text="Maximum length for text fields"
-    )
-    min_value = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Minimum value for number fields"
-    )
-    max_value = models.DecimalField(
-        max_digits=15,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Maximum value for number fields"
-    )
-    
-    # Display Configuration
-    sequence = models.PositiveIntegerField(default=0, help_text="Display order")
-    is_visible = models.BooleanField(default=True, help_text="Is field visible?")
-    help_text = models.TextField(blank=True, help_text="Help text for users")
-    
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='owned_custom_fields',
-        help_text="Field owner"
-    )
-    
-    # Status
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        ordering = ['model_name', 'sequence']
-        unique_together = ('company', 'model_name', 'name')
-    
-    def __str__(self):
-        return f"{self.model_name}.{self.name} ({self.get_field_type_display()})"
-
-class CustomFieldValue(CompanyIsolatedModel):
-    """
-    Values for custom fields
-    """
-    field = models.ForeignKey(
-        CustomField,
-        on_delete=models.CASCADE,
-        related_name='values'
-    )
-    object_id = models.UUIDField(help_text="ID of the object this value belongs to")
-    value = models.TextField(help_text="Field value")
-    
-    class Meta:
-        unique_together = ('field', 'object_id')
-        ordering = ['field__sequence']
-    
-    def __str__(self):
-        return f"{self.field.name}: {self.value}"
-
-class SystemPreference(CompanyIsolatedModel):
-    """
-    System preferences and settings
-    """
-    PREFERENCE_CATEGORIES = [
+    SETTING_TYPES = [
         ('general', 'General'),
         ('email', 'Email'),
         ('security', 'Security'),
         ('integration', 'Integration'),
         ('notification', 'Notification'),
-        ('workflow', 'Workflow'),
-        ('reporting', 'Reporting'),
         ('custom', 'Custom'),
     ]
     
     # Basic Information
-    key = models.CharField(max_length=255, help_text="Preference key")
-    value = models.TextField(help_text="Preference value")
-    category = models.CharField(
+    key = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    setting_type = models.CharField(
         max_length=20,
-        choices=PREFERENCE_CATEGORIES,
+        choices=SETTING_TYPES,
         default='general'
     )
-    description = models.TextField(blank=True, help_text="Preference description")
     
-    # Data Type
+    # Setting Value
+    value = models.TextField(blank=True)
     data_type = models.CharField(
         max_length=20,
         choices=[
             ('string', 'String'),
             ('integer', 'Integer'),
-            ('float', 'Float'),
             ('boolean', 'Boolean'),
             ('json', 'JSON'),
+            ('email', 'Email'),
+            ('url', 'URL'),
         ],
         default='string'
     )
     
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='owned_preferences',
-        help_text="Preference owner"
+    # Validation
+    is_required = models.BooleanField(default=False)
+    validation_rules = models.JSONField(
+        default=dict,
+        help_text="Validation rules for the setting"
     )
     
-    # Status
-    is_active = models.BooleanField(default=True)
+    # Access Control
+    is_public = models.BooleanField(default=False)
+    is_editable = models.BooleanField(default=True)
     
     class Meta:
-        ordering = ['category', 'key']
-        unique_together = ('company', 'key')
+        db_table = 'system_setting'
+        ordering = ['setting_type', 'name']
     
     def __str__(self):
-        return f"{self.key} = {self.value}"
+        return f"{self.name} ({self.key})"
 
-class WorkflowConfiguration(CompanyIsolatedModel):
-    """
-    Workflow configuration and settings
-    """
-    WORKFLOW_TYPES = [
-        ('lead_qualification', 'Lead Qualification'),
-        ('deal_approval', 'Deal Approval'),
-        ('task_assignment', 'Task Assignment'),
-        ('email_sequence', 'Email Sequence'),
-        ('notification', 'Notification'),
-        ('data_sync', 'Data Synchronization'),
-        ('custom', 'Custom'),
+class CustomField(CompanyIsolatedModel):
+    """Custom fields for entities"""
+    
+    FIELD_TYPES = [
+        ('text', 'Text'),
+        ('textarea', 'Textarea'),
+        ('number', 'Number'),
+        ('decimal', 'Decimal'),
+        ('date', 'Date'),
+        ('datetime', 'DateTime'),
+        ('boolean', 'Boolean'),
+        ('choice', 'Choice'),
+        ('multichoice', 'Multi Choice'),
+        ('url', 'URL'),
+        ('email', 'Email'),
+        ('phone', 'Phone'),
+    ]
+    
+    ENTITY_TYPES = [
+        ('account', 'Account'),
+        ('contact', 'Contact'),
+        ('lead', 'Lead'),
+        ('deal', 'Deal'),
+        ('product', 'Product'),
+        ('campaign', 'Campaign'),
     ]
     
     # Basic Information
-    name = models.CharField(max_length=255, help_text="Workflow name")
-    description = models.TextField(blank=True, help_text="Workflow description")
-    workflow_type = models.CharField(
+    name = models.CharField(max_length=255)
+    label = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    field_type = models.CharField(
         max_length=20,
-        choices=WORKFLOW_TYPES,
-        help_text="Type of workflow"
+        choices=FIELD_TYPES,
+        default='text'
+    )
+    entity_type = models.CharField(
+        max_length=20,
+        choices=ENTITY_TYPES
     )
     
-    # Configuration
-    trigger_model = models.CharField(
-        max_length=100,
-        help_text="Model that triggers this workflow"
+    # Field Configuration
+    is_required = models.BooleanField(default=False)
+    is_unique = models.BooleanField(default=False)
+    default_value = models.TextField(blank=True)
+    choices = models.JSONField(
+        default=list,
+        help_text="Choices for choice/multichoice fields"
     )
-    trigger_conditions = models.JSONField(
+    validation_rules = models.JSONField(
         default=dict,
-        help_text="Conditions that trigger the workflow"
+        help_text="Field validation rules"
+    )
+    
+    # Display Settings
+    display_order = models.IntegerField(default=0)
+    is_visible = models.BooleanField(default=True)
+    help_text = models.TextField(blank=True)
+    
+    # Access Control
+    is_editable = models.BooleanField(default=True)
+    is_searchable = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'custom_field'
+        ordering = ['entity_type', 'display_order']
+        unique_together = ('company', 'name', 'entity_type')
+    
+    def __str__(self):
+        return f"{self.label} ({self.entity_type})"
+
+class WorkflowRule(CompanyIsolatedModel):
+    """Workflow automation rules"""
+    
+    RULE_TYPES = [
+        ('trigger', 'Trigger'),
+        ('condition', 'Condition'),
+        ('action', 'Action'),
+    ]
+    
+    TRIGGER_TYPES = [
+        ('create', 'Record Created'),
+        ('update', 'Record Updated'),
+        ('delete', 'Record Deleted'),
+        ('field_change', 'Field Changed'),
+        ('status_change', 'Status Changed'),
+        ('date_reached', 'Date Reached'),
+        ('email_received', 'Email Received'),
+        ('webhook', 'Webhook'),
+    ]
+    
+    ACTION_TYPES = [
+        ('send_email', 'Send Email'),
+        ('create_task', 'Create Task'),
+        ('update_field', 'Update Field'),
+        ('change_status', 'Change Status'),
+        ('assign_user', 'Assign User'),
+        ('send_notification', 'Send Notification'),
+        ('create_record', 'Create Record'),
+        ('webhook', 'Webhook'),
+    ]
+    
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    rule_type = models.CharField(
+        max_length=20,
+        choices=RULE_TYPES,
+        default='trigger'
+    )
+    
+    # Rule Configuration
+    entity_type = models.CharField(
+        max_length=50,
+        help_text="Entity type this rule applies to"
+    )
+    trigger_type = models.CharField(
+        max_length=20,
+        choices=TRIGGER_TYPES,
+        blank=True
+    )
+    conditions = models.JSONField(
+        default=dict,
+        help_text="Rule conditions"
     )
     actions = models.JSONField(
         default=list,
-        help_text="Actions to perform when triggered"
-    )
-    
-    # Assignment
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='owned_workflows',
-        help_text="Workflow owner"
+        help_text="Rule actions"
     )
     
     # Status
     is_active = models.BooleanField(default=True)
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Apply to all companies"
+    )
+    
+    # Execution
+    execution_count = models.IntegerField(default=0)
+    last_executed = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_workflow_rules'
+    )
     
     class Meta:
+        db_table = 'workflow_rule'
         ordering = ['name']
-        unique_together = ('company', 'name')
     
     def __str__(self):
-        return f"{self.name} ({self.get_workflow_type_display()})"
+        return self.name
+
+class NotificationTemplate(CompanyIsolatedModel):
+    """Notification templates"""
+    
+    TEMPLATE_TYPES = [
+        ('email', 'Email'),
+        ('sms', 'SMS'),
+        ('push', 'Push Notification'),
+        ('in_app', 'In-App Notification'),
+    ]
+    
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    template_type = models.CharField(
+        max_length=20,
+        choices=TEMPLATE_TYPES,
+        default='email'
+    )
+    
+    # Template Content
+    subject = models.CharField(max_length=255, blank=True)
+    body = models.TextField()
+    html_body = models.TextField(blank=True)
+    
+    # Template Settings
+    is_active = models.BooleanField(default=True)
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Available to all companies"
+    )
+    
+    # Variables
+    variables = models.JSONField(
+        default=list,
+        help_text="Available template variables"
+    )
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_notification_templates'
+    )
+    
+    class Meta:
+        db_table = 'notification_template'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
 
 class UserPreference(CompanyIsolatedModel):
-    """
-    User-specific preferences
-    """
+    """User preferences and settings"""
+    
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name='preferences'
     )
-    key = models.CharField(max_length=255, help_text="Preference key")
-    value = models.TextField(help_text="Preference value")
-    category = models.CharField(
-        max_length=50,
-        default='user',
-        help_text="Preference category"
+    
+    # Dashboard Preferences
+    dashboard_layout = models.JSONField(
+        default=dict,
+        help_text="Dashboard layout configuration"
     )
-    
-    class Meta:
-        unique_together = ('user', 'key')
-        ordering = ['category', 'key']
-    
-    def __str__(self):
-        return f"{self.user.email}: {self.key} = {self.value}"
-
-class SystemLog(CompanyIsolatedModel):
-    """
-    System logs and events
-    """
-    LOG_LEVELS = [
-        ('debug', 'Debug'),
-        ('info', 'Info'),
-        ('warning', 'Warning'),
-        ('error', 'Error'),
-        ('critical', 'Critical'),
-    ]
-    
-    LOG_CATEGORIES = [
-        ('system', 'System'),
-        ('user', 'User'),
-        ('security', 'Security'),
-        ('integration', 'Integration'),
-        ('workflow', 'Workflow'),
-        ('email', 'Email'),
-        ('api', 'API'),
-        ('database', 'Database'),
-        ('other', 'Other'),
-    ]
-    
-    # Basic Information
-    level = models.CharField(
-        max_length=20,
-        choices=LOG_LEVELS,
-        help_text="Log level"
-    )
-    category = models.CharField(
-        max_length=20,
-        choices=LOG_CATEGORIES,
-        help_text="Log category"
-    )
-    message = models.TextField(help_text="Log message")
-    
-    # Context
-    user = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='system_logs'
-    )
-    object_type = models.CharField(
+    default_dashboard = models.CharField(
         max_length=100,
         blank=True,
-        help_text="Type of object related to this log"
-    )
-    object_id = models.UUIDField(
-        null=True,
-        blank=True,
-        help_text="ID of object related to this log"
+        help_text="Default dashboard ID"
     )
     
-    # Additional Data
-    metadata = models.JSONField(
+    # Display Preferences
+    theme = models.CharField(
+        max_length=20,
+        choices=[
+            ('light', 'Light'),
+            ('dark', 'Dark'),
+            ('auto', 'Auto'),
+        ],
+        default='light'
+    )
+    language = models.CharField(
+        max_length=10,
+        default='en',
+        help_text="User language preference"
+    )
+    timezone = models.CharField(
+        max_length=50,
+        default='UTC',
+        help_text="User timezone"
+    )
+    date_format = models.CharField(
+        max_length=20,
+        default='MM/DD/YYYY',
+        help_text="Date format preference"
+    )
+    time_format = models.CharField(
+        max_length=10,
+        choices=[
+            ('12', '12 Hour'),
+            ('24', '24 Hour'),
+        ],
+        default='12'
+    )
+    
+    # Notification Preferences
+    email_notifications = models.BooleanField(default=True)
+    push_notifications = models.BooleanField(default=True)
+    sms_notifications = models.BooleanField(default=False)
+    
+    # Notification Settings
+    notification_frequency = models.CharField(
+        max_length=20,
+        choices=[
+            ('immediate', 'Immediate'),
+            ('daily', 'Daily'),
+            ('weekly', 'Weekly'),
+            ('never', 'Never'),
+        ],
+        default='immediate'
+    )
+    
+    # Custom Preferences
+    custom_preferences = models.JSONField(
         default=dict,
-        blank=True,
-        help_text="Additional log data"
-    )
-    ip_address = models.GenericIPAddressField(
-        null=True,
-        blank=True,
-        help_text="IP address of the user"
-    )
-    user_agent = models.TextField(
-        blank=True,
-        help_text="User agent string"
+        help_text="Custom user preferences"
     )
     
     class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['company', 'level']),
-            models.Index(fields=['company', 'category']),
-            models.Index(fields=['company', 'user']),
-            models.Index(fields=['company', 'created_at']),
-        ]
+        db_table = 'user_preference'
+        unique_together = ('user', 'company')
     
     def __str__(self):
-        return f"[{self.level}] {self.message}"
+        return f"{self.user.email} - Preferences"
 
-class SystemHealth(CompanyIsolatedModel):
-    """
-    System health monitoring
-    """
-    COMPONENT_TYPES = [
-        ('database', 'Database'),
-        ('cache', 'Cache'),
+class Integration(CompanyIsolatedModel):
+    """Third-party integrations"""
+    
+    INTEGRATION_TYPES = [
         ('email', 'Email Service'),
-        ('storage', 'File Storage'),
-        ('api', 'API Gateway'),
-        ('worker', 'Background Worker'),
+        ('calendar', 'Calendar'),
+        ('crm', 'CRM'),
+        ('marketing', 'Marketing'),
+        ('analytics', 'Analytics'),
+        ('payment', 'Payment'),
+        ('social', 'Social Media'),
         ('other', 'Other'),
     ]
     
     STATUS_CHOICES = [
-        ('healthy', 'Healthy'),
-        ('warning', 'Warning'),
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
         ('error', 'Error'),
-        ('critical', 'Critical'),
+        ('pending', 'Pending'),
     ]
     
     # Basic Information
-    component = models.CharField(
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    integration_type = models.CharField(
         max_length=20,
-        choices=COMPONENT_TYPES,
-        help_text="System component"
+        choices=INTEGRATION_TYPES,
+        default='other'
     )
+    
+    # Integration Details
+    provider = models.CharField(max_length=100, help_text="Integration provider")
+    api_endpoint = models.URLField(blank=True)
+    api_key = models.CharField(max_length=255, blank=True)
+    api_secret = models.CharField(max_length=255, blank=True)
+    
+    # Configuration
+    configuration = models.JSONField(
+        default=dict,
+        help_text="Integration configuration"
+    )
+    webhook_url = models.URLField(blank=True)
+    
+    # Status
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        help_text="Component status"
+        default='inactive'
     )
-    message = models.TextField(help_text="Status message")
+    is_active = models.BooleanField(default=True)
     
-    # Metrics
-    response_time = models.FloatField(
-        null=True,
-        blank=True,
-        help_text="Response time in milliseconds"
-    )
-    memory_usage = models.FloatField(
-        null=True,
-        blank=True,
-        help_text="Memory usage in MB"
-    )
-    cpu_usage = models.FloatField(
-        null=True,
-        blank=True,
-        help_text="CPU usage percentage"
-    )
-    
-    # Additional Data
-    metadata = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Additional health data"
-    )
-    
-    class Meta:
-        ordering = ['-created_at']
-        unique_together = ('company', 'component')
-    
-    def __str__(self):
-        return f"{self.component}: {self.status}"
-
-class DataBackup(CompanyIsolatedModel):
-    """
-    Data backup configuration and history
-    """
-    BACKUP_TYPES = [
-        ('full', 'Full Backup'),
-        ('incremental', 'Incremental Backup'),
-        ('differential', 'Differential Backup'),
-    ]
-    
-    BACKUP_STATUS = [
-        ('scheduled', 'Scheduled'),
-        ('running', 'Running'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('cancelled', 'Cancelled'),
-    ]
-    
-    # Basic Information
-    name = models.CharField(max_length=255, help_text="Backup name")
-    description = models.TextField(blank=True, help_text="Backup description")
-    backup_type = models.CharField(
+    # Last Sync
+    last_sync = models.DateTimeField(null=True, blank=True)
+    sync_frequency = models.CharField(
         max_length=20,
-        choices=BACKUP_TYPES,
-        help_text="Type of backup"
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=BACKUP_STATUS,
-        default='scheduled'
-    )
-    
-    # Schedule
-    scheduled_at = models.DateTimeField(
-        help_text="Scheduled backup time"
-    )
-    started_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Actual start time"
-    )
-    completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Completion time"
+        choices=[
+            ('manual', 'Manual'),
+            ('hourly', 'Hourly'),
+            ('daily', 'Daily'),
+            ('weekly', 'Weekly'),
+        ],
+        default='manual'
     )
     
-    # Backup Details
-    file_path = models.CharField(
-        max_length=500,
-        blank=True,
-        help_text="Path to backup file"
-    )
-    file_size = models.BigIntegerField(
-        null=True,
-        blank=True,
-        help_text="Backup file size in bytes"
-    )
-    
-    # Assignment
-    created_by = models.ForeignKey(
+    # Owner
+    owner = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='created_backups'
-    )
-    
-    # Additional Information
-    metadata = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Additional backup data"
+        related_name='owned_integrations'
     )
     
     class Meta:
-        ordering = ['-scheduled_at']
+        db_table = 'integration'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+class AuditLog(CompanyIsolatedModel):
+    """System audit logs"""
+    
+    ACTION_TYPES = [
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('delete', 'Delete'),
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('view', 'View'),
+        ('export', 'Export'),
+        ('import', 'Import'),
+        ('system', 'System'),
+    ]
+    
+    # Basic Information
+    action = models.CharField(
+        max_length=20,
+        choices=ACTION_TYPES
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='audit_logs'
+    )
+    
+    # Object Information
+    object_type = models.CharField(max_length=100, blank=True)
+    object_id = models.CharField(max_length=100, blank=True)
+    object_name = models.CharField(max_length=255, blank=True)
+    
+    # Details
+    description = models.TextField(blank=True)
+    details = models.JSONField(
+        default=dict,
+        help_text="Additional audit details"
+    )
+    
+    # Request Information
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    request_path = models.CharField(max_length=500, blank=True)
+    request_method = models.CharField(max_length=10, blank=True)
+    
+    # Result
+    success = models.BooleanField(default=True)
+    error_message = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'audit_log'
+        ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['company', 'status']),
-            models.Index(fields=['company', 'scheduled_at']),
+            models.Index(fields=['company', 'action']),
+            models.Index(fields=['company', 'user']),
+            models.Index(fields=['company', 'object_type']),
+            models.Index(fields=['company', 'created_at']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.get_backup_type_display()})"
+        return f"{self.action} - {self.object_type} - {self.created_at}"

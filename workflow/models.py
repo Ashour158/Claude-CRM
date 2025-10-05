@@ -1,85 +1,89 @@
 # workflow/models.py
-# Business Process Management for enterprise CRM
+# Workflow and business process management models
 
 from django.db import models
-from core.models import CompanyIsolatedModel, User
-from django.contrib.contenttypes.models import ContentType
-from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.auth import get_user_model
+from core.models import CompanyIsolatedModel
 import uuid
-import json
 
-class WorkflowDefinition(CompanyIsolatedModel):
-    """Workflow definitions for business processes"""
+User = get_user_model()
+
+class Workflow(CompanyIsolatedModel):
+    """Workflow definitions"""
     
     WORKFLOW_TYPES = [
-        ('lead_management', 'Lead Management'),
-        ('sales_process', 'Sales Process'),
-        ('customer_onboarding', 'Customer Onboarding'),
-        ('support_ticket', 'Support Ticket'),
-        ('approval_process', 'Approval Process'),
-        ('data_quality', 'Data Quality'),
-        ('notification', 'Notification'),
+        ('approval', 'Approval Workflow'),
+        ('notification', 'Notification Workflow'),
+        ('automation', 'Automation Workflow'),
+        ('escalation', 'Escalation Workflow'),
+        ('custom', 'Custom Workflow'),
     ]
     
-    TRIGGER_TYPES = [
-        ('manual', 'Manual'),
-        ('automatic', 'Automatic'),
-        ('scheduled', 'Scheduled'),
-        ('event_based', 'Event Based'),
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('archived', 'Archived'),
     ]
     
-    name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
-    workflow_type = models.CharField(max_length=50, choices=WORKFLOW_TYPES)
-    trigger_type = models.CharField(max_length=20, choices=TRIGGER_TYPES)
-    trigger_conditions = models.JSONField(default=dict)  # Conditions for triggering
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    workflow_type = models.CharField(
+        max_length=20,
+        choices=WORKFLOW_TYPES,
+        default='custom'
+    )
+    
+    # Workflow Configuration
+    trigger_conditions = models.JSONField(
+        default=dict,
+        help_text="Workflow trigger conditions"
+    )
+    steps = models.JSONField(
+        default=list,
+        help_text="Workflow steps configuration"
+    )
+    rules = models.JSONField(
+        default=dict,
+        help_text="Workflow business rules"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='draft'
+    )
     is_active = models.BooleanField(default=True)
-    version = models.CharField(max_length=10, default='1.0')
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_workflows')
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Available to all companies"
+    )
+    
+    # Execution
+    execution_count = models.IntegerField(default=0)
+    last_executed = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_workflows'
+    )
     
     class Meta:
-        unique_together = ('company', 'name', 'version')
+        db_table = 'workflow'
         ordering = ['name']
     
     def __str__(self):
-        return f"{self.name} v{self.version}"
+        return self.name
 
-
-class WorkflowStep(CompanyIsolatedModel):
-    """Individual steps in a workflow"""
-    
-    STEP_TYPES = [
-        ('action', 'Action'),
-        ('condition', 'Condition'),
-        ('approval', 'Approval'),
-        ('notification', 'Notification'),
-        ('data_update', 'Data Update'),
-        ('integration', 'Integration'),
-        ('delay', 'Delay'),
-    ]
-    
-    workflow = models.ForeignKey(WorkflowDefinition, on_delete=models.CASCADE, related_name='steps')
-    name = models.CharField(max_length=100)
-    step_type = models.CharField(max_length=20, choices=STEP_TYPES)
-    description = models.TextField(blank=True, null=True)
-    step_order = models.IntegerField()
-    configuration = models.JSONField(default=dict)  # Step-specific configuration
-    is_required = models.BooleanField(default=True)
-    timeout_minutes = models.IntegerField(null=True, blank=True)
-    
-    class Meta:
-        unique_together = ('workflow', 'step_order')
-        ordering = ['step_order']
-    
-    def __str__(self):
-        return f"{self.workflow.name} - Step {self.step_order}: {self.name}"
-
-
-class WorkflowInstance(CompanyIsolatedModel):
-    """Running instances of workflows"""
+class WorkflowExecution(CompanyIsolatedModel):
+    """Workflow execution instances"""
     
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
         ('running', 'Running'),
         ('completed', 'Completed'),
         ('failed', 'Failed'),
@@ -87,79 +91,62 @@ class WorkflowInstance(CompanyIsolatedModel):
         ('paused', 'Paused'),
     ]
     
-    workflow = models.ForeignKey(WorkflowDefinition, on_delete=models.CASCADE, related_name='instances')
-    instance_id = models.UUIDField(default=uuid.uuid4, unique=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name='executions'
+    )
+    
+    # Execution Details
+    triggered_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='triggered_workflows'
+    )
+    trigger_data = models.JSONField(
+        default=dict,
+        help_text="Data that triggered the workflow"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='running'
+    )
+    current_step = models.IntegerField(default=0)
+    total_steps = models.IntegerField(default=0)
+    
+    # Timing
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    started_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='started_workflows')
-    context_data = models.JSONField(default=dict)  # Workflow context and variables
-    current_step = models.ForeignKey(WorkflowStep, on_delete=models.SET_NULL, null=True, blank=True, related_name='current_instances')
+    paused_at = models.DateTimeField(null=True, blank=True)
     
-    # Generic foreign key to related object
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
-    object_id = models.PositiveIntegerField(null=True, blank=True)
-    content_object = GenericForeignKey('content_type', 'object_id')
+    # Results
+    result_data = models.JSONField(
+        default=dict,
+        help_text="Workflow execution results"
+    )
+    error_message = models.TextField(blank=True)
+    error_details = models.JSONField(default=dict)
     
     class Meta:
+        db_table = 'workflow_execution'
         ordering = ['-started_at']
     
     def __str__(self):
-        return f"{self.workflow.name} - {self.instance_id} - {self.status}"
-    
-    def get_next_step(self):
-        """Get the next step in the workflow"""
-        if self.current_step:
-            return self.workflow.steps.filter(step_order__gt=self.current_step.step_order).first()
-        else:
-            return self.workflow.steps.filter(step_order=1).first()
-    
-    def advance_to_next_step(self):
-        """Advance to the next step"""
-        next_step = self.get_next_step()
-        if next_step:
-            self.current_step = next_step
-            self.save(update_fields=['current_step'])
-            return True
-        else:
-            # Workflow completed
-            self.status = 'completed'
-            self.completed_at = models.DateTimeField(auto_now=True)
-            self.save(update_fields=['status', 'completed_at'])
-            return False
-
-
-class WorkflowStepExecution(CompanyIsolatedModel):
-    """Execution records for workflow steps"""
-    
-    STATUS_CHOICES = [
-        ('pending', 'Pending'),
-        ('running', 'Running'),
-        ('completed', 'Completed'),
-        ('failed', 'Failed'),
-        ('skipped', 'Skipped'),
-    ]
-    
-    instance = models.ForeignKey(WorkflowInstance, on_delete=models.CASCADE, related_name='step_executions')
-    step = models.ForeignKey(WorkflowStep, on_delete=models.CASCADE, related_name='executions')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    started_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    executed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='executed_steps')
-    result_data = models.JSONField(default=dict)  # Step execution results
-    error_message = models.TextField(blank=True, null=True)
-    retry_count = models.IntegerField(default=0)
-    
-    class Meta:
-        unique_together = ('instance', 'step')
-        ordering = ['started_at']
-    
-    def __str__(self):
-        return f"{self.instance} - {self.step.name} - {self.status}"
-
+        return f"{self.workflow.name} - {self.started_at}"
 
 class ApprovalProcess(CompanyIsolatedModel):
-    """Approval processes for business workflows"""
+    """Approval processes for records"""
+    
+    PROCESS_TYPES = [
+        ('sequential', 'Sequential Approval'),
+        ('parallel', 'Parallel Approval'),
+        ('conditional', 'Conditional Approval'),
+        ('escalation', 'Escalation Approval'),
+    ]
     
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -168,118 +155,271 @@ class ApprovalProcess(CompanyIsolatedModel):
         ('cancelled', 'Cancelled'),
     ]
     
-    workflow_instance = models.ForeignKey(WorkflowInstance, on_delete=models.CASCADE, related_name='approvals')
-    approver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='approvals')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    requested_at = models.DateTimeField(auto_now_add=True)
-    responded_at = models.DateTimeField(null=True, blank=True)
-    comments = models.TextField(blank=True, null=True)
-    priority = models.CharField(max_length=20, choices=[
-        ('low', 'Low'),
-        ('medium', 'Medium'),
-        ('high', 'High'),
-        ('urgent', 'Urgent'),
-    ], default='medium')
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    process_type = models.CharField(
+        max_length=20,
+        choices=PROCESS_TYPES,
+        default='sequential'
+    )
+    
+    # Process Configuration
+    entity_type = models.CharField(
+        max_length=100,
+        help_text="Entity type this process applies to"
+    )
+    approval_rules = models.JSONField(
+        default=dict,
+        help_text="Approval rules and conditions"
+    )
+    approvers = models.JSONField(
+        default=list,
+        help_text="List of approvers"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    is_active = models.BooleanField(default=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_approval_processes'
+    )
     
     class Meta:
-        unique_together = ('workflow_instance', 'approver')
+        db_table = 'approval_process'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+class ApprovalRequest(CompanyIsolatedModel):
+    """Approval requests for records"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    approval_process = models.ForeignKey(
+        ApprovalProcess,
+        on_delete=models.CASCADE,
+        related_name='requests'
+    )
+    
+    # Request Details
+    entity_type = models.CharField(max_length=100)
+    entity_id = models.CharField(max_length=100)
+    entity_data = models.JSONField(
+        default=dict,
+        help_text="Entity data being approved"
+    )
+    
+    # Requestor
+    requested_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='approval_requests'
+    )
+    request_reason = models.TextField(blank=True)
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    
+    # Timing
+    requested_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Results
+    approved_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_requests'
+    )
+    approval_notes = models.TextField(blank=True)
+    rejection_reason = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'approval_request'
         ordering = ['-requested_at']
     
     def __str__(self):
-        return f"{self.workflow_instance} - {self.approver.email} - {self.status}"
-
+        return f"{self.approval_process.name} - {self.entity_type} {self.entity_id}"
 
 class BusinessRule(CompanyIsolatedModel):
-    """Business rules for workflow automation"""
+    """Business rules for automation"""
     
     RULE_TYPES = [
-        ('validation', 'Validation'),
-        ('assignment', 'Assignment'),
-        ('notification', 'Notification'),
-        ('escalation', 'Escalation'),
-        ('routing', 'Routing'),
+        ('validation', 'Validation Rule'),
+        ('calculation', 'Calculation Rule'),
+        ('assignment', 'Assignment Rule'),
+        ('notification', 'Notification Rule'),
+        ('escalation', 'Escalation Rule'),
+        ('custom', 'Custom Rule'),
     ]
     
-    name = models.CharField(max_length=100)
-    description = models.TextField()
-    rule_type = models.CharField(max_length=20, choices=RULE_TYPES)
-    conditions = models.JSONField(default=dict)  # Rule conditions
-    actions = models.JSONField(default=dict)  # Actions to take when conditions are met
-    priority = models.IntegerField(default=0)
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    rule_type = models.CharField(
+        max_length=20,
+        choices=RULE_TYPES,
+        default='custom'
+    )
+    
+    # Rule Configuration
+    entity_type = models.CharField(
+        max_length=100,
+        help_text="Entity type this rule applies to"
+    )
+    conditions = models.JSONField(
+        default=dict,
+        help_text="Rule conditions"
+    )
+    actions = models.JSONField(
+        default=list,
+        help_text="Rule actions"
+    )
+    priority = models.IntegerField(
+        default=0,
+        help_text="Rule priority (higher number = higher priority)"
+    )
+    
+    # Status
     is_active = models.BooleanField(default=True)
-    effective_date = models.DateField()
-    expiry_date = models.DateField(null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_business_rules')
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Apply to all companies"
+    )
+    
+    # Execution
+    execution_count = models.IntegerField(default=0)
+    last_executed = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_business_rules'
+    )
     
     class Meta:
-        unique_together = ('company', 'name')
+        db_table = 'business_rule'
         ordering = ['-priority', 'name']
     
     def __str__(self):
-        return f"{self.name} ({self.rule_type})"
+        return self.name
 
-
-class RuleExecution(CompanyIsolatedModel):
-    """Execution records for business rules"""
+class BusinessRuleExecution(CompanyIsolatedModel):
+    """Business rule execution logs"""
     
-    rule = models.ForeignKey(BusinessRule, on_delete=models.CASCADE, related_name='executions')
-    triggered_by = models.CharField(max_length=100)  # What triggered the rule
-    context_data = models.JSONField(default=dict)  # Context when rule was triggered
-    executed_at = models.DateTimeField(auto_now_add=True)
-    result = models.JSONField(default=dict)  # Rule execution result
+    business_rule = models.ForeignKey(
+        BusinessRule,
+        on_delete=models.CASCADE,
+        related_name='executions'
+    )
+    
+    # Execution Details
+    entity_type = models.CharField(max_length=100)
+    entity_id = models.CharField(max_length=100)
+    execution_data = models.JSONField(
+        default=dict,
+        help_text="Data used in rule execution"
+    )
+    
+    # Results
     success = models.BooleanField(default=True)
-    error_message = models.TextField(blank=True, null=True)
+    result_data = models.JSONField(
+        default=dict,
+        help_text="Rule execution results"
+    )
+    error_message = models.TextField(blank=True)
+    
+    # Timing
+    executed_at = models.DateTimeField(auto_now_add=True)
+    execution_time_ms = models.IntegerField(null=True, blank=True)
     
     class Meta:
+        db_table = 'business_rule_execution'
         ordering = ['-executed_at']
     
     def __str__(self):
-        return f"{self.rule.name} - {self.executed_at} - {'SUCCESS' if self.success else 'FAILED'}"
+        return f"{self.business_rule.name} - {self.executed_at}"
 
-
-class WorkflowTemplate(CompanyIsolatedModel):
-    """Templates for common workflows"""
+class ProcessTemplate(CompanyIsolatedModel):
+    """Process templates for common workflows"""
     
-    TEMPLATE_CATEGORIES = [
-        ('sales', 'Sales'),
-        ('marketing', 'Marketing'),
-        ('support', 'Support'),
-        ('hr', 'Human Resources'),
-        ('finance', 'Finance'),
-        ('operations', 'Operations'),
+    TEMPLATE_TYPES = [
+        ('onboarding', 'Onboarding'),
+        ('offboarding', 'Offboarding'),
+        ('approval', 'Approval'),
+        ('notification', 'Notification'),
+        ('escalation', 'Escalation'),
+        ('custom', 'Custom'),
     ]
     
-    name = models.CharField(max_length=100)
-    description = models.TextField()
-    category = models.CharField(max_length=20, choices=TEMPLATE_CATEGORIES)
-    template_data = models.JSONField(default=dict)  # Template configuration
-    is_public = models.BooleanField(default=False)  # Available to other companies
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_templates')
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    template_type = models.CharField(
+        max_length=20,
+        choices=TEMPLATE_TYPES,
+        default='custom'
+    )
+    
+    # Template Configuration
+    process_steps = models.JSONField(
+        default=list,
+        help_text="Process steps configuration"
+    )
+    variables = models.JSONField(
+        default=list,
+        help_text="Template variables"
+    )
+    settings = models.JSONField(
+        default=dict,
+        help_text="Template settings"
+    )
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    is_public = models.BooleanField(
+        default=False,
+        help_text="Available to all companies"
+    )
+    
+    # Usage
     usage_count = models.IntegerField(default=0)
+    last_used = models.DateTimeField(null=True, blank=True)
+    
+    # Owner
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_process_templates'
+    )
     
     class Meta:
-        unique_together = ('company', 'name')
-        ordering = ['category', 'name']
+        db_table = 'process_template'
+        ordering = ['name']
     
     def __str__(self):
-        return f"{self.name} ({self.category})"
-
-
-class WorkflowMetrics(CompanyIsolatedModel):
-    """Metrics and analytics for workflows"""
-    
-    workflow = models.ForeignKey(WorkflowDefinition, on_delete=models.CASCADE, related_name='metrics')
-    date = models.DateField()
-    instances_started = models.IntegerField(default=0)
-    instances_completed = models.IntegerField(default=0)
-    instances_failed = models.IntegerField(default=0)
-    average_duration_minutes = models.FloatField(default=0)
-    step_executions = models.IntegerField(default=0)
-    step_failures = models.IntegerField(default=0)
-    
-    class Meta:
-        unique_together = ('workflow', 'date')
-        ordering = ['-date']
-    
-    def __str__(self):
-        return f"{self.workflow.name} - {self.date} - {self.instances_completed} completed"
+        return self.name

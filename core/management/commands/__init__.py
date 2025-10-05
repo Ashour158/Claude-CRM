@@ -1,1 +1,1 @@
-# Management commands package
+# core/management/commands/__init__.py
