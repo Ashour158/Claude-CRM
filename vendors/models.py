@@ -2,7 +2,7 @@
 # Vendor and supplier management models
 
 from django.db import models
-from django.core.validators import EmailValidator
+from django.core.validators import EmailValidator, MinValueValidator
 from core.models import CompanyIsolatedModel, User
 import uuid
 
@@ -383,12 +383,12 @@ class PurchaseOrderItem(CompanyIsolatedModel):
         max_digits=10,
         decimal_places=2,
         default=1,
-        validators=[models.MinValueValidator(0.01)]
+        validators=[MinValueValidator(0.01)]
     )
     unit_price = models.DecimalField(
         max_digits=15,
         decimal_places=2,
-        validators=[models.MinValueValidator(0)]
+        validators=[MinValueValidator(0)]
     )
     discount_percentage = models.DecimalField(
         max_digits=5,
