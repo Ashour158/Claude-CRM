@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 
-from .models import Territory, TerritoryRule, TerritoryAssignment
+from .models import Territory
 
 
 @admin.register(Territory)
@@ -72,69 +72,5 @@ class TerritoryAdmin(admin.ModelAdmin):
     users_count.short_description = 'Users'
 
 
-@admin.register(TerritoryRule)
-class TerritoryRuleAdmin(admin.ModelAdmin):
-    """Territory rule admin interface"""
-    list_display = [
-        'name', 'territory', 'priority', 'auto_assign', 
-        'notify_manager', 'is_active', 'created_at'
-    ]
-    list_filter = [
-        'auto_assign', 'notify_manager', 'is_active', 
-        'territory', 'created_at', 'updated_at'
-    ]
-    search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    raw_id_fields = ['territory']
-    
-    fieldsets = (
-        ('Rule Information', {
-            'fields': ('name', 'description', 'territory', 'priority')
-        }),
-        ('Conditions', {
-            'fields': ('conditions',),
-            'classes': ('collapse',)
-        }),
-        ('Actions', {
-            'fields': ('auto_assign', 'notify_manager')
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-
-@admin.register(TerritoryAssignment)
-class TerritoryAssignmentAdmin(admin.ModelAdmin):
-    """Territory assignment admin interface"""
-    list_display = [
-        'territory', 'entity_type', 'entity_id', 'assigned_by',
-        'assignment_reason', 'is_active', 'created_at'
-    ]
-    list_filter = [
-        'entity_type', 'is_active', 'territory', 'assigned_by',
-        'created_at', 'updated_at'
-    ]
-    search_fields = ['territory__name', 'entity_id', 'assignment_reason']
-    readonly_fields = ['created_at', 'updated_at']
-    raw_id_fields = ['territory', 'assigned_by']
-    
-    fieldsets = (
-        ('Assignment Information', {
-            'fields': ('territory', 'entity_type', 'entity_id')
-        }),
-        ('Assignment Details', {
-            'fields': ('assigned_by', 'assignment_reason')
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+# TerritoryRule and TerritoryAssignment models are not implemented yet
+# Admin classes will be added when these models are created
