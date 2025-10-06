@@ -1,0 +1,141 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+  DJANGO_SETTINGS_MODULE: config.settings
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: crm_user
+          POSTGRES_PASSWORD: crm_password
+          POSTGRES_DB: crm_test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Create logs directory
+      run: mkdir -p logs
+    
+    - name: Django Check
+      run: python manage.py check
+    
+    - name: Run Migrations
+      env:
+        DB_NAME: crm_test_db
+        DB_USER: crm_user
+        DB_PASSWORD: crm_password
+        DB_HOST: localhost
+        DB_PORT: 5432
+        USE_SQLITE: false
+      run: |
+        python manage.py migrate --noinput
+    
+    - name: Run Tests
+      env:
+        DB_NAME: crm_test_db
+        DB_USER: crm_user
+        DB_PASSWORD: crm_password
+        DB_HOST: localhost
+        DB_PORT: 5432
+        USE_SQLITE: false
+      run: |
+        python manage.py test --parallel --keepdb
+    
+    - name: Run Integrity Check
+      run: |
+        python scripts/integrity_check.py
+    
+    - name: Upload coverage reports
+      if: always()
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+    
+    - name: Run Black
+      run: black --check --diff .
+      continue-on-error: true
+    
+    - name: Run isort
+      run: isort --check-only --diff .
+      continue-on-error: true
+    
+    - name: Run Flake8
+      run: flake8 . --max-line-length=120 --exclude=migrations,venv
+      continue-on-error: true
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+    
+    - name: Check for security vulnerabilities
+      run: |
+        safety check --json || true
+        bandit -r . -f json -o bandit-report.json || true
+    
+    - name: Upload security reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
