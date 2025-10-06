@@ -92,26 +92,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# Database with enterprise optimizations
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'crm_db'),
-        'USER': os.getenv('DB_USER', 'crm_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'crm_password'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'options': '-c default_transaction_isolation=serializable',
-            'MAX_CONNS': 20,
-            'MIN_CONNS': 5,
-            'CONN_MAX_AGE': 600,  # 10 minutes
-            'CONN_HEALTH_CHECKS': True,
-        },
-        'CONN_MAX_AGE': 600,
-        'ATOMIC_REQUESTS': True,
+# Database
+# Use SQLite for development/testing, PostgreSQL for production
+if DEBUG or os.getenv('USE_SQLITE', 'true').lower() == 'true':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'crm_db'),
+            'USER': os.getenv('DB_USER', 'crm_user'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'crm_password'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 600,
+            'ATOMIC_REQUESTS': True,
+        }
+    }
+
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.User'
