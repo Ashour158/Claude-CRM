@@ -3,7 +3,7 @@
 
 from .service import SearchService
 from .backends import PostgresSearchBackend, ExternalSearchBackend
-from .schemas import SearchResult, SearchQuery
+from .schemas import SearchResult, SearchQuery, SearchResponse, SearchScoringConfig
 from .filters import GDPRFilter
 
 __all__ = [
@@ -12,5 +12,7 @@ __all__ = [
     'ExternalSearchBackend',
     'SearchResult',
     'SearchQuery',
+    'SearchResponse',
+    'SearchScoringConfig',
     'GDPRFilter',
 ]
