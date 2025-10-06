@@ -94,3 +94,68 @@ class Deal(CompanyIsolatedModel):
         if self.amount and self.probability:
             return (self.amount * self.probability) / 100
         return 0
+
+class PipelineStage(CompanyIsolatedModel):
+    """Pipeline stages for deals"""
+    name = models.CharField(max_length=100)
+    sequence = models.IntegerField(default=0)
+    probability = models.IntegerField(default=0, help_text="Win probability percentage")
+    is_closed = models.BooleanField(default=False)
+    is_won = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    description = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'pipeline_stages'
+        ordering = ['sequence']
+        unique_together = ['company', 'name']
+    
+    def __str__(self):
+        return self.name
+
+class DealProduct(CompanyIsolatedModel):
+    """Products associated with deals"""
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name='deal_products')
+    name = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
+    unit_price = models.DecimalField(max_digits=15, decimal_places=2)
+    total_price = models.DecimalField(max_digits=15, decimal_places=2)
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    
+    class Meta:
+        db_table = 'deal_products'
+    
+    def __str__(self):
+        return f"{self.name} - {self.deal.name}"
+
+class DealActivity(CompanyIsolatedModel):
+    """Activities related to deals"""
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name='deal_activities')
+    activity_type = models.CharField(max_length=50)
+    subject = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    due_date = models.DateTimeField(null=True, blank=True)
+    completed = models.BooleanField(default=False)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    class Meta:
+        db_table = 'deal_activities'
+        verbose_name_plural = 'Deal Activities'
+    
+    def __str__(self):
+        return f"{self.activity_type} - {self.deal.name}"
+
+class DealForecast(CompanyIsolatedModel):
+    """Deal forecast tracking"""
+    deal = models.ForeignKey(Deal, on_delete=models.CASCADE, related_name='forecasts')
+    forecast_date = models.DateField()
+    forecasted_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    forecasted_close_date = models.DateField()
+    probability = models.IntegerField()
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'deal_forecasts'
+    
+    def __str__(self):
+        return f"Forecast for {self.deal.name} - {self.forecast_date}"

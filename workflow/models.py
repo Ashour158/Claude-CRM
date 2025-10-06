@@ -80,6 +80,213 @@ class Workflow(CompanyIsolatedModel):
     def __str__(self):
         return self.name
 
+class WorkflowTrigger(CompanyIsolatedModel):
+    """Workflow triggers - defines when a workflow should execute"""
+    
+    EVENT_TYPES = [
+        ('timeline.event', 'Timeline Event'),
+        ('lead.created', 'Lead Created'),
+        ('lead.converted', 'Lead Converted'),
+        ('deal.stage_changed', 'Deal Stage Changed'),
+        ('deal.won', 'Deal Won'),
+        ('deal.lost', 'Deal Lost'),
+        ('contact.created', 'Contact Created'),
+        ('account.created', 'Account Created'),
+        ('custom', 'Custom Event'),
+    ]
+    
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name='triggers'
+    )
+    event_type = models.CharField(
+        max_length=50,
+        choices=EVENT_TYPES,
+        db_index=True,
+        help_text="Type of event that triggers this workflow"
+    )
+    conditions = models.JSONField(
+        default=dict,
+        help_text="Conditions that must be met for trigger to fire (DSL format)"
+    )
+    is_active = models.BooleanField(default=True)
+    priority = models.IntegerField(default=0, help_text="Trigger priority for ordering")
+    
+    class Meta:
+        db_table = 'workflow_trigger'
+        ordering = ['-priority', 'event_type']
+    
+    def __str__(self):
+        return f"{self.workflow.name} - {self.event_type}"
+
+class WorkflowAction(CompanyIsolatedModel):
+    """Workflow actions - defines what to do when workflow executes"""
+    
+    ACTION_TYPES = [
+        ('send_email', 'Send Email'),
+        ('add_note', 'Add Note'),
+        ('update_field', 'Update Field'),
+        ('enqueue_export', 'Enqueue Export'),
+        ('create_task', 'Create Task'),
+        ('send_notification', 'Send Notification'),
+        ('call_webhook', 'Call Webhook'),
+        ('custom', 'Custom Action'),
+    ]
+    
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name='actions'
+    )
+    action_type = models.CharField(
+        max_length=50,
+        choices=ACTION_TYPES,
+        help_text="Type of action to execute"
+    )
+    payload = models.JSONField(
+        default=dict,
+        help_text="Action configuration and parameters"
+    )
+    ordering = models.IntegerField(
+        default=0,
+        help_text="Order of execution within workflow"
+    )
+    is_active = models.BooleanField(default=True)
+    allow_failure = models.BooleanField(
+        default=False,
+        help_text="Whether workflow should continue if this action fails"
+    )
+    
+    class Meta:
+        db_table = 'workflow_action'
+        ordering = ['ordering', 'action_type']
+    
+    def __str__(self):
+        return f"{self.workflow.name} - {self.action_type} (#{self.ordering})"
+
+class WorkflowRun(CompanyIsolatedModel):
+    """Workflow run instance - tracks execution of a workflow"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name='runs'
+    )
+    trigger = models.ForeignKey(
+        WorkflowTrigger,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='runs'
+    )
+    
+    # Execution context
+    triggered_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='workflow_runs'
+    )
+    trigger_data = models.JSONField(
+        default=dict,
+        help_text="Data that triggered the workflow"
+    )
+    context_data = models.JSONField(
+        default=dict,
+        help_text="Additional context for workflow execution"
+    )
+    
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        db_index=True
+    )
+    
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    duration_ms = models.IntegerField(null=True, blank=True, help_text="Execution duration in milliseconds")
+    
+    # Results
+    success = models.BooleanField(default=False)
+    result_data = models.JSONField(
+        default=dict,
+        help_text="Workflow execution results"
+    )
+    error_message = models.TextField(blank=True)
+    error_details = models.JSONField(default=dict)
+    
+    class Meta:
+        db_table = 'workflow_run'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['workflow', 'status', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.workflow.name} run at {self.created_at}"
+
+class WorkflowActionRun(CompanyIsolatedModel):
+    """Workflow action run - tracks execution of individual actions"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('skipped', 'Skipped'),
+    ]
+    
+    workflow_run = models.ForeignKey(
+        WorkflowRun,
+        on_delete=models.CASCADE,
+        related_name='action_runs'
+    )
+    action = models.ForeignKey(
+        WorkflowAction,
+        on_delete=models.CASCADE,
+        related_name='runs'
+    )
+    
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    duration_ms = models.IntegerField(null=True, blank=True)
+    
+    # Results
+    success = models.BooleanField(default=False)
+    result_data = models.JSONField(
+        default=dict,
+        help_text="Action execution results"
+    )
+    error_message = models.TextField(blank=True)
+    retry_count = models.IntegerField(default=0)
+    
+    class Meta:
+        db_table = 'workflow_action_run'
+        ordering = ['action__ordering', 'created_at']
+    
+    def __str__(self):
+        return f"{self.action.action_type} for run {self.workflow_run.id}"
+
 class WorkflowExecution(CompanyIsolatedModel):
     """Workflow execution instances"""
     
