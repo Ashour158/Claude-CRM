@@ -13,6 +13,7 @@ router.register(r'approval-requests', views.ApprovalRequestViewSet)
 router.register(r'business-rules', views.BusinessRuleViewSet)
 router.register(r'business-rule-executions', views.BusinessRuleExecutionViewSet)
 router.register(r'process-templates', views.ProcessTemplateViewSet)
+router.register(r'approvals', views.WorkflowApprovalViewSet, basename='workflow-approval')
 
 urlpatterns = [
     path('', include(router.urls)),

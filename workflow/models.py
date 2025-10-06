@@ -423,3 +423,76 @@ class ProcessTemplate(CompanyIsolatedModel):
     
     def __str__(self):
         return self.name
+
+class WorkflowApproval(CompanyIsolatedModel):
+    """Workflow approval with escalation support"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('denied', 'Denied'),
+        ('escalated', 'Escalated'),
+        ('expired', 'Expired'),
+    ]
+    
+    # Workflow References
+    workflow_run_id = models.UUIDField(
+        help_text="Reference to workflow execution"
+    )
+    action_run_id = models.UUIDField(
+        help_text="Reference to specific action run"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    
+    # Approval Roles
+    approver_role = models.CharField(
+        max_length=100,
+        help_text="Role required to approve this action"
+    )
+    escalate_role = models.CharField(
+        max_length=100,
+        blank=True,
+        help_text="Role to escalate to after timeout"
+    )
+    
+    # Timing
+    expires_at = models.DateTimeField(
+        help_text="When this approval expires and should escalate"
+    )
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the approval was resolved (approved/denied)"
+    )
+    
+    # Actor
+    actor_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="User who approved/denied the request"
+    )
+    
+    # Metadata
+    metadata = models.JSONField(
+        default=dict,
+        help_text="Additional approval metadata (comments, reasons, etc.)"
+    )
+    
+    class Meta:
+        db_table = 'workflow_approval'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['workflow_run_id']),
+            models.Index(fields=['action_run_id']),
+            models.Index(fields=['status']),
+            models.Index(fields=['expires_at']),
+        ]
+    
+    def __str__(self):
+        return f"Approval {self.id} - {self.status} (workflow_run: {self.workflow_run_id})"

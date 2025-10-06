@@ -4,7 +4,7 @@
 from rest_framework import serializers
 from .models import (
     Workflow, WorkflowExecution, ApprovalProcess, ApprovalRequest,
-    BusinessRule, BusinessRuleExecution, ProcessTemplate
+    BusinessRule, BusinessRuleExecution, ProcessTemplate, WorkflowApproval
 )
 from core.serializers import UserSerializer
 
@@ -70,3 +70,22 @@ class ProcessTemplateSerializer(serializers.ModelSerializer):
         model = ProcessTemplate
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+class WorkflowApprovalSerializer(serializers.ModelSerializer):
+    """Workflow approval serializer"""
+    
+    class Meta:
+        model = WorkflowApproval
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'resolved_at']
+    
+    def validate(self, data):
+        """Validate approval data"""
+        # Ensure expires_at is in the future for new approvals
+        if not self.instance and data.get('expires_at'):
+            from django.utils import timezone
+            if data['expires_at'] <= timezone.now():
+                raise serializers.ValidationError({
+                    'expires_at': 'Expiration time must be in the future'
+                })
+        return data
