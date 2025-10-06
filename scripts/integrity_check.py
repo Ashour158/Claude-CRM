@@ -38,6 +38,11 @@ def check_legacy_shims(base_dir):
         for file in files:
             if file.endswith('.py'):
                 filepath = Path(root) / file
+                
+                # Skip integrity_check.py itself
+                if filepath.name == 'integrity_check.py':
+                    continue
+                
                 checked_files += 1
                 
                 try:
