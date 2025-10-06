@@ -25,44 +25,55 @@ Future URL structure:
     /api/v1/system/         - System configuration
 """
 
-from django.urls import path, include
+try:
+    from django.urls import path, include
+    DJANGO_AVAILABLE = True
+except ImportError:
+    # Allow import without Django for testing
+    DJANGO_AVAILABLE = False
+    path = None
+    include = None
 
-app_name = 'crm'
+app_name = 'crm_package'
 
-urlpatterns = [
-    # Accounts
-    # path('api/v1/accounts/', include('crm_package.accounts.api.urls')),
-    
-    # Contacts
-    # path('api/v1/contacts/', include('crm_package.contacts.api.urls')),
-    
-    # Leads
-    # path('api/v1/leads/', include('crm_package.leads.api.urls')),
-    
-    # Deals
-    # path('api/v1/deals/', include('crm_package.deals.api.urls')),
-    
-    # Activities
-    # path('api/v1/activities/', include('crm_package.activities.api.urls')),
-    
-    # Products
-    # path('api/v1/products/', include('crm_package.products.api.urls')),
-    
-    # Marketing
-    # path('api/v1/marketing/', include('crm_package.marketing.api.urls')),
-    
-    # Vendors
-    # path('api/v1/vendors/', include('crm_package.vendors.api.urls')),
-    
-    # Sales
-    # path('api/v1/sales/', include('crm_package.sales.api.urls')),
-    
-    # Workflow
-    # path('api/v1/workflow/', include('crm_package.workflow.api.urls')),
-    
-    # Territories
-    # path('api/v1/territories/', include('crm_package.territories.api.urls')),
-    
-    # System
-    # path('api/v1/system/', include('crm_package.system.api.urls')),
-]
+if DJANGO_AVAILABLE:
+    urlpatterns = [
+        # Accounts
+        # path('api/v1/accounts/', include('crm_package.accounts.api.urls')),
+        
+        # Contacts
+        # path('api/v1/contacts/', include('crm_package.contacts.api.urls')),
+        
+        # Leads
+        # path('api/v1/leads/', include('crm_package.leads.api.urls')),
+        
+        # Deals
+        # path('api/v1/deals/', include('crm_package.deals.api.urls')),
+        
+        # Activities
+        # path('api/v1/activities/', include('crm_package.activities.api.urls')),
+        
+        # Products
+        # path('api/v1/products/', include('crm_package.products.api.urls')),
+        
+        # Marketing
+        # path('api/v1/marketing/', include('crm_package.marketing.api.urls')),
+        
+        # Vendors
+        # path('api/v1/vendors/', include('crm_package.vendors.api.urls')),
+        
+        # Sales
+        # path('api/v1/sales/', include('crm_package.sales.api.urls')),
+        
+        # Workflow
+        # path('api/v1/workflow/', include('crm_package.workflow.api.urls')),
+        
+        # Territories
+        # path('api/v1/territories/', include('crm_package.territories.api.urls')),
+        
+        # System
+        # path('api/v1/system/', include('crm_package.system.api.urls')),
+    ]
+else:
+    # Placeholder for non-Django environments
+    urlpatterns = []
