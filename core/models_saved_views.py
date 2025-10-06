@@ -2,43 +2,46 @@
 # Saved Views for persistent list filtering
 
 from django.db import models
-from django.core.validators import JSONSchemaValidator
+from django.core.exceptions import ValidationError
 from core.models import CompanyIsolatedModel, User
+import json
 
 
-# Schema for saved view definition validation
-SAVED_VIEW_DEFINITION_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "filters": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field": {"type": "string"},
-                    "operator": {"type": "string"},
-                    "value": {}
-                },
-                "required": ["field", "operator"]
-            }
-        },
-        "columns": {
-            "type": "array",
-            "items": {"type": "string"}
-        },
-        "sort": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "field": {"type": "string"},
-                    "direction": {"type": "string", "enum": ["asc", "desc"]}
-                },
-                "required": ["field", "direction"]
-            }
-        }
-    }
-}
+def validate_saved_view_definition(value):
+    """
+    Validate saved view definition structure.
+    """
+    if not isinstance(value, dict):
+        raise ValidationError("Definition must be a dictionary")
+    
+    # Validate filters
+    filters = value.get('filters', [])
+    if not isinstance(filters, list):
+        raise ValidationError("Filters must be a list")
+    
+    for filter_def in filters:
+        if not isinstance(filter_def, dict):
+            raise ValidationError("Each filter must be a dictionary")
+        if 'field' not in filter_def or 'operator' not in filter_def:
+            raise ValidationError("Each filter must have 'field' and 'operator'")
+    
+    # Validate columns
+    columns = value.get('columns', [])
+    if not isinstance(columns, list):
+        raise ValidationError("Columns must be a list")
+    
+    # Validate sort
+    sort = value.get('sort', [])
+    if not isinstance(sort, list):
+        raise ValidationError("Sort must be a list")
+    
+    for sort_def in sort:
+        if not isinstance(sort_def, dict):
+            raise ValidationError("Each sort must be a dictionary")
+        if 'field' not in sort_def or 'direction' not in sort_def:
+            raise ValidationError("Each sort must have 'field' and 'direction'")
+        if sort_def['direction'] not in ['asc', 'desc']:
+            raise ValidationError("Sort direction must be 'asc' or 'desc'")
 
 
 class SavedListView(CompanyIsolatedModel):
@@ -70,7 +73,7 @@ class SavedListView(CompanyIsolatedModel):
     
     # View Definition (JSON)
     definition = models.JSONField(
-        validators=[JSONSchemaValidator(limit_value=SAVED_VIEW_DEFINITION_SCHEMA)],
+        validators=[validate_saved_view_definition],
         help_text="View definition with filters, columns, and sorting"
     )
     
