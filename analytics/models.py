@@ -451,3 +451,83 @@ class LeadAnalytics(CompanyIsolatedModel):
     
     def __str__(self):
         return f"{self.user.email} - {self.period_start} to {self.period_end}"
+# Phase 4+ Analytics Models
+
+class FactWorkflowRun(CompanyIsolatedModel):
+    """Fact table for workflow run analytics"""
+    
+    workflow_id = models.UUIDField(db_index=True)
+    workflow_name = models.CharField(max_length=255)
+    run_id = models.UUIDField(db_index=True)
+    
+    # Execution metrics
+    success = models.BooleanField(default=False)
+    duration_ms = models.IntegerField(help_text="Execution duration in milliseconds")
+    
+    # Timing
+    executed_date = models.DateField(db_index=True)
+    executed_at = models.DateTimeField()
+    
+    # Context
+    triggered_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    trigger_type = models.CharField(max_length=50)
+    
+    class Meta:
+        db_table = 'fact_workflow_run'
+        ordering = ['-executed_at']
+        indexes = [
+            models.Index(fields=['company', 'executed_date']),
+            models.Index(fields=['workflow_id', '-executed_date']),
+            models.Index(fields=['success', '-executed_date']),
+        ]
+    
+    def __str__(self):
+        return f"Workflow {self.workflow_name} - {self.executed_at}"
+
+class LeadScoreCache(CompanyIsolatedModel):
+    """Cached lead scoring with explanation"""
+    
+    lead = models.OneToOneField(
+        Lead,
+        on_delete=models.CASCADE,
+        related_name='score_cache'
+    )
+    
+    # Score details
+    total_score = models.IntegerField(default=0, help_text="Total lead score (0-100)")
+    score_components = models.JSONField(
+        default=dict,
+        help_text="Score breakdown by component"
+    )
+    explanation = models.JSONField(
+        default=dict,
+        help_text="Detailed explanation of score calculation"
+    )
+    
+    # Feature values
+    status_weight = models.IntegerField(default=0)
+    recent_activity_count = models.IntegerField(default=0)
+    days_since_creation = models.IntegerField(default=0)
+    custom_field_weights = models.JSONField(
+        default=dict,
+        help_text="Custom field contribution to score"
+    )
+    
+    # Metadata
+    calculated_at = models.DateTimeField(auto_now=True)
+    score_version = models.CharField(max_length=20, default='v2')
+    
+    class Meta:
+        db_table = 'lead_score_cache'
+        indexes = [
+            models.Index(fields=['company', '-total_score']),
+            models.Index(fields=['-calculated_at']),
+        ]
+    
+    def __str__(self):
+        return f"Lead {self.lead.id} - Score: {self.total_score}"

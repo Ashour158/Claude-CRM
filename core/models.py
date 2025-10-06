@@ -165,3 +165,16 @@ class AuditLog(models.Model):
     
     def __str__(self):
         return f"{self.action} - {self.user.email if self.user else 'System'}"
+
+# Import Phase 4+ permission and security models
+from core.permissions_models import (
+    Role, RoleFieldPermission, GDPRRegistry, 
+    DataRetentionPolicy, MaskingAuditLog
+)
+
+__all__ = [
+    'User', 'Company', 'CompanyIsolatedModel', 'UserCompanyAccess',
+    'UserSession', 'AuditLog', 'Role', 'RoleFieldPermission',
+    'GDPRRegistry', 'DataRetentionPolicy', 'MaskingAuditLog'
+]
+
