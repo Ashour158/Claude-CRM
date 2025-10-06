@@ -651,3 +651,42 @@ class InvoiceItem(CompanyIsolatedModel):
         discount_amount = (base_price * self.discount_percentage) / 100
         self.total_price = base_price - discount_amount
         super().save(*args, **kwargs)
+
+class Payment(CompanyIsolatedModel):
+    """
+    Payment records for invoices.
+    """
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'Cash'),
+        ('check', 'Check'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('credit_card', 'Credit Card'),
+        ('online', 'Online Payment'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+    
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name='payments'
+    )
+    payment_number = models.CharField(max_length=100, unique=True)
+    payment_date = models.DateField()
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reference_number = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'payments'
+        ordering = ['-payment_date']
+    
+    def __str__(self):
+        return f"{self.payment_number} - {self.amount}"

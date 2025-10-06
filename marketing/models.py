@@ -508,3 +508,91 @@ class MarketingAutomationExecution(CompanyIsolatedModel):
     
     def __str__(self):
         return f"{self.automation.name} - {self.contact.full_name}"
+
+class MarketingListMember(CompanyIsolatedModel):
+    """
+    Members of marketing lists (alias for MarketingListContact).
+    """
+    marketing_list = models.ForeignKey(
+        MarketingList,
+        on_delete=models.CASCADE,
+        related_name='members'
+    )
+    contact = models.ForeignKey(
+        'crm.Contact',
+        on_delete=models.CASCADE,
+        related_name='list_memberships'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('active', 'Active'),
+            ('unsubscribed', 'Unsubscribed'),
+            ('bounced', 'Bounced'),
+        ],
+        default='active'
+    )
+    subscribed_at = models.DateTimeField(auto_now_add=True)
+    unsubscribed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'marketing_list_members'
+        unique_together = [['marketing_list', 'contact']]
+    
+    def __str__(self):
+        return f"{self.marketing_list.name} - {self.contact.email}"
+
+
+class MarketingEvent(CompanyIsolatedModel):
+    """
+    Marketing events and webinars.
+    """
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    event_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('webinar', 'Webinar'),
+            ('conference', 'Conference'),
+            ('workshop', 'Workshop'),
+            ('seminar', 'Seminar'),
+        ]
+    )
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    location = models.CharField(max_length=255, blank=True)
+    max_attendees = models.IntegerField(null=True, blank=True)
+    registration_url = models.URLField(blank=True)
+    is_published = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'marketing_events'
+        ordering = ['-start_date']
+    
+    def __str__(self):
+        return self.name
+
+
+class MarketingAnalytics(CompanyIsolatedModel):
+    """
+    Marketing campaign analytics and metrics.
+    """
+    campaign = models.ForeignKey(
+        Campaign,
+        on_delete=models.CASCADE,
+        related_name='analytics'
+    )
+    metric_date = models.DateField()
+    impressions = models.IntegerField(default=0)
+    clicks = models.IntegerField(default=0)
+    conversions = models.IntegerField(default=0)
+    cost = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    revenue = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    
+    class Meta:
+        db_table = 'marketing_analytics'
+        unique_together = [['campaign', 'metric_date']]
+        ordering = ['-metric_date']
+    
+    def __str__(self):
+        return f"{self.campaign.name} - {self.metric_date}"

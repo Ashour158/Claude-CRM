@@ -498,3 +498,108 @@ class VendorPerformance(CompanyIsolatedModel):
             self.communication_score
         ) / 3
         super().save(*args, **kwargs)
+
+class VendorProduct(CompanyIsolatedModel):
+    """
+    Products offered by vendors.
+    """
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name='vendor_products'
+    )
+    product = models.ForeignKey(
+        'products.Product',
+        on_delete=models.CASCADE,
+        related_name='vendor_offerings'
+    )
+    vendor_sku = models.CharField(max_length=100, blank=True)
+    unit_price = models.DecimalField(max_digits=15, decimal_places=2)
+    currency = models.CharField(max_length=3, default='USD')
+    lead_time_days = models.IntegerField(default=0)
+    minimum_order_quantity = models.IntegerField(default=1)
+    is_preferred = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'vendor_products'
+        unique_together = [['vendor', 'product']]
+    
+    def __str__(self):
+        return f"{self.vendor.name} - {self.product.name}"
+
+
+class VendorInvoice(CompanyIsolatedModel):
+    """
+    Invoices received from vendors.
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('approved', 'Approved'),
+        ('paid', 'Paid'),
+        ('disputed', 'Disputed'),
+    ]
+    
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name='invoices'
+    )
+    purchase_order = models.ForeignKey(
+        PurchaseOrder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='invoices'
+    )
+    invoice_number = models.CharField(max_length=100, unique=True)
+    invoice_date = models.DateField()
+    due_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    subtotal = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'vendor_invoices'
+        ordering = ['-invoice_date']
+    
+    def __str__(self):
+        return f"{self.invoice_number} - {self.vendor.name}"
+
+
+class VendorPayment(CompanyIsolatedModel):
+    """
+    Payments made to vendors.
+    """
+    PAYMENT_METHOD_CHOICES = [
+        ('check', 'Check'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('credit_card', 'Credit Card'),
+        ('online', 'Online Payment'),
+    ]
+    
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.CASCADE,
+        related_name='payments'
+    )
+    invoice = models.ForeignKey(
+        VendorInvoice,
+        on_delete=models.CASCADE,
+        related_name='payments'
+    )
+    payment_number = models.CharField(max_length=100, unique=True)
+    payment_date = models.DateField()
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    payment_method = models.CharField(max_length=50, choices=PAYMENT_METHOD_CHOICES)
+    reference_number = models.CharField(max_length=255, blank=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'vendor_payments'
+        ordering = ['-payment_date']
+    
+    def __str__(self):
+        return f"{self.payment_number} - {self.vendor.name}"
