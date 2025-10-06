@@ -8,8 +8,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import Activity, Task, Event
 from .serializers import ActivitySerializer, TaskSerializer, EventSerializer
+from sharing.mixins import SharingEnforcedViewMixin
 
-class ActivityViewSet(viewsets.ModelViewSet):
+class ActivityViewSet(SharingEnforcedViewMixin, viewsets.ModelViewSet):
     queryset = Activity.objects.all()
     serializer_class = ActivitySerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -17,6 +18,10 @@ class ActivityViewSet(viewsets.ModelViewSet):
     filterset_fields = ['activity_type', 'status', 'assigned_to']
     ordering_fields = ['activity_date', 'created_at']
     ordering = ['-activity_date']
+    
+    # Sharing enforcement configuration
+    sharing_object_type = 'activity'
+    sharing_ownership_field = 'assigned_to'
 
 class TaskViewSet(viewsets.ModelViewSet):
     queryset = Task.objects.all()
