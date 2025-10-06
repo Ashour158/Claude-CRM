@@ -4,7 +4,6 @@
 from django.db import models
 from django.core.validators import EmailValidator
 from core.tenant_models import TenantOwnedModel
-from core.models import User
 
 
 class Contact(TenantOwnedModel):
@@ -55,7 +54,7 @@ class Contact(TenantOwnedModel):
         help_text="Manager/supervisor of this contact"
     )
     owner = models.ForeignKey(
-        User,
+        'core.User',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

@@ -3,7 +3,6 @@
 
 from django.db import models
 from core.tenant_models import TenantOwnedModel
-from core.models import User
 from territories.models import Territory
 
 
@@ -87,7 +86,7 @@ class Account(TenantOwnedModel):
         related_name='accounts'
     )
     owner = models.ForeignKey(
-        User,
+        'core.User',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

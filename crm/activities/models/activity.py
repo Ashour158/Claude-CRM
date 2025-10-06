@@ -5,7 +5,6 @@ from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from core.tenant_models import TenantOwnedModel
-from core.models import User
 
 
 class TimelineEvent(TenantOwnedModel):
@@ -53,7 +52,7 @@ class TimelineEvent(TenantOwnedModel):
     
     # Actor (who performed the action)
     actor = models.ForeignKey(
-        User,
+        'core.User',
         on_delete=models.SET_NULL,
         null=True,
         related_name='timeline_events',

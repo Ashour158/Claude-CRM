@@ -40,11 +40,11 @@ LOCAL_APPS = [
     'crm.accounts',
     'crm.contacts',
     'crm.leads',
-    'crm.activities',
+    'crm.activities.apps.CrmActivitiesConfig',  # Custom label to avoid conflict
     'crm.custom_fields',
     'crm.permissions',
     'territories',
-    'activities',
+    'activities',  # Old activities app
     'deals',
     'products',
     'sales',

@@ -1,28 +1,9 @@
 # crm/__init__.py
 # CRM package with modular domain structure
 
-# Make submodules importable at package level
-from crm.accounts.models import Account
-from crm.contacts.models import Contact
-from crm.leads.models import Lead
-from crm.activities.models import TimelineEvent, Activity
-from crm.custom_fields.models import CustomFieldDefinition
-from crm.custom_fields.services import CustomFieldService
-from crm.leads.services import LeadConversionService, LeadConversionResult, AlreadyConvertedError
-from crm.permissions.models import Role, RolePermission, PermissionMatrix
+# Models and services are imported from submodules
+# Import them directly from their locations instead of re-exporting here
+# to avoid circular import and app registry issues
 
-__all__ = [
-    'Account',
-    'Contact', 
-    'Lead',
-    'TimelineEvent',
-    'Activity',
-    'CustomFieldDefinition',
-    'CustomFieldService',
-    'LeadConversionService',
-    'LeadConversionResult',
-    'AlreadyConvertedError',
-    'Role',
-    'RolePermission',
-    'PermissionMatrix',
-]
+default_app_config = 'crm.apps.CrmConfig'
+

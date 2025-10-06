@@ -2,14 +2,11 @@
 # Enhanced tenant-aware base models with row-level scoping
 
 from django.db import models
-from django.contrib.auth import get_user_model
 from contextvars import ContextVar
 import uuid
 
 # Context variable to store current organization/company
 current_organization = ContextVar('current_organization', default=None)
-
-User = get_user_model()
 
 
 class TenantQuerySet(models.QuerySet):
@@ -75,7 +72,7 @@ class TenantOwnedModel(models.Model):
     
     # Audit fields
     created_by = models.ForeignKey(
-        User,
+        'core.User',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -83,7 +80,7 @@ class TenantOwnedModel(models.Model):
         help_text="User who created this record"
     )
     updated_by = models.ForeignKey(
-        User,
+        'core.User',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

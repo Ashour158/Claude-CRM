@@ -5,7 +5,6 @@ from django.db import models
 from django.core.validators import EmailValidator
 from django.utils import timezone
 from core.tenant_models import TenantOwnedModel
-from core.models import User
 from territories.models import Territory
 
 
@@ -108,7 +107,7 @@ class Lead(TenantOwnedModel):
         related_name='leads'
     )
     owner = models.ForeignKey(
-        User,
+        'core.User',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
