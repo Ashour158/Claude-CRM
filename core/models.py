@@ -165,3 +165,164 @@ class AuditLog(models.Model):
     
     def __str__(self):
         return f"{self.action} - {self.user.email if self.user else 'System'}"
+
+
+# ========================================
+# SAVED VIEWS MODEL
+# ========================================
+
+class SavedListView(models.Model):
+    """Saved list views for entities with filters, columns, and sorting."""
+    
+    ENTITY_TYPE_CHOICES = [
+        ('account', 'Account'),
+        ('contact', 'Contact'),
+        ('lead', 'Lead'),
+        ('deal', 'Deal'),
+        ('activity', 'Activity'),
+        ('product', 'Product'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='saved_views')
+    owner = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True,
+        related_name='saved_views',
+        help_text="Owner of the view. Null means shared/public view."
+    )
+    entity_type = models.CharField(
+        max_length=50,
+        choices=ENTITY_TYPE_CHOICES,
+        db_index=True,
+        help_text="Type of entity this view is for"
+    )
+    name = models.CharField(max_length=255, help_text="Name of the saved view")
+    definition = models.JSONField(
+        help_text="View definition including filters, columns, and sort"
+    )
+    is_private = models.BooleanField(
+        default=True,
+        help_text="Whether this view is private to the owner"
+    )
+    
+    # Soft Delete
+    is_active = models.BooleanField(default=True, db_index=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_saved_list_view'
+        ordering = ['entity_type', 'name']
+        unique_together = [('organization', 'entity_type', 'name', 'owner')]
+        indexes = [
+            models.Index(fields=['entity_type']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        owner_str = f" - {self.owner.email}" if self.owner else " (Shared)"
+        return f"{self.name} ({self.entity_type}){owner_str}"
+    
+    def soft_delete(self):
+        """Soft delete the saved view."""
+        self.is_active = False
+        self.deleted_at = timezone.now()
+        self.save(update_fields=['is_active', 'deleted_at'])
+
+
+# ========================================
+# CUSTOM FIELD VALUE MODEL (Relational Layer)
+# ========================================
+
+class CustomFieldValue(models.Model):
+    """Relational storage for custom field values (dual-write with JSON)."""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='custom_field_values')
+    
+    # Custom field reference
+    custom_field_id = models.UUIDField(help_text="Reference to CustomField")
+    custom_field_name = models.CharField(max_length=255, db_index=True)
+    
+    # Entity reference (generic)
+    entity_type = models.CharField(max_length=50, db_index=True)
+    entity_id = models.UUIDField(db_index=True)
+    
+    # Typed value columns
+    value_text = models.TextField(null=True, blank=True)
+    value_number = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    value_date = models.DateField(null=True, blank=True)
+    value_datetime = models.DateTimeField(null=True, blank=True)
+    value_boolean = models.BooleanField(null=True, blank=True)
+    value_select = models.CharField(max_length=255, null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_custom_field_value'
+        unique_together = [('company', 'custom_field_id', 'entity_type', 'entity_id')]
+        indexes = [
+            models.Index(fields=['entity_type', 'entity_id']),
+            models.Index(fields=['custom_field_name']),
+        ]
+    
+    def __str__(self):
+        return f"{self.custom_field_name} for {self.entity_type}:{self.entity_id}"
+
+
+# ========================================
+# TIMELINE EVENT MODEL
+# ========================================
+
+class TimelineEvent(models.Model):
+    """Timeline events for tracking entity history."""
+    
+    EVENT_TYPE_CHOICES = [
+        ('create', 'Created'),
+        ('update', 'Updated'),
+        ('delete', 'Deleted'),
+        ('stage_change', 'Stage Changed'),
+        ('status_change', 'Status Changed'),
+        ('assignment', 'Assigned'),
+        ('note', 'Note Added'),
+        ('call', 'Call Logged'),
+        ('email', 'Email Sent'),
+        ('meeting', 'Meeting Scheduled'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='timeline_events')
+    
+    # Event details
+    event_type = models.CharField(max_length=50, choices=EVENT_TYPE_CHOICES, db_index=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    
+    # Entity reference (generic)
+    entity_type = models.CharField(max_length=50, db_index=True)
+    entity_id = models.UUIDField(db_index=True)
+    
+    # Actor
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='timeline_events')
+    
+    # Additional data
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    
+    class Meta:
+        db_table = 'core_timeline_event'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['entity_type', 'entity_id', '-created_at']),
+            models.Index(fields=['event_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.event_type} - {self.title}"

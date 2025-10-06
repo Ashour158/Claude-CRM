@@ -1,12 +1,12 @@
 # integrations/admin.py
 from django.contrib import admin
 from .models import (
-    Integration, EmailIntegration, CalendarIntegration, Webhook, WebhookLog,
-    APICredential, DataSync
+    EmailIntegration, CalendarIntegration, Webhook, WebhookLog, APICredential, DataSync
 )
 
-@admin.register(Integration)
-class IntegrationAdmin(admin.ModelAdmin):
+# TODO: Add Integration model
+# @admin.register(Integration)
+# class IntegrationAdmin(admin.ModelAdmin):
     list_display = ['name', 'integration_type', 'provider', 'status', 'is_active', 'owner']
     list_filter = ['integration_type', 'provider', 'status', 'is_active', 'created_at']
     search_fields = ['name', 'description', 'provider']

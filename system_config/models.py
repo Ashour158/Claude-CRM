@@ -434,7 +434,7 @@ class Integration(CompanyIsolatedModel):
     def __str__(self):
         return self.name
 
-class AuditLog(CompanyIsolatedModel):
+class SystemAuditLog(CompanyIsolatedModel):
     """System audit logs"""
     
     ACTION_TYPES = [
@@ -458,7 +458,7 @@ class AuditLog(CompanyIsolatedModel):
         User,
         on_delete=models.SET_NULL,
         null=True,
-        related_name='audit_logs'
+        related_name='system_audit_logs'
     )
     
     # Object Information

@@ -1,6 +1,12 @@
 # deals/admin.py
 from django.contrib import admin
-from deals.models import PipelineStage, Deal, DealProduct, DealActivity, DealForecast
+from deals.models import PipelineStage, Pipeline, Deal, DealProduct, DealActivity, DealForecast
+
+@admin.register(Pipeline)
+class PipelineAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_default', 'is_active', 'company']
+    list_filter = ['is_default', 'is_active', 'company']
+    search_fields = ['name', 'description']
 
 @admin.register(PipelineStage)
 class PipelineStageAdmin(admin.ModelAdmin):
@@ -17,7 +23,7 @@ class DealAdmin(admin.ModelAdmin):
         'probability', 'expected_close_date', 'owner', 'priority'
     ]
     list_filter = [
-        'status', 'stage', 'priority', 'source', 'is_active',
+        'status', 'stage__name', 'priority', 'source', 'is_active',
         'expected_close_date', 'created_at', 'company'
     ]
     search_fields = [
@@ -26,7 +32,7 @@ class DealAdmin(admin.ModelAdmin):
     ]
     ordering = ['-created_at']
     list_editable = ['status', 'priority']
-    raw_id_fields = ['account', 'contact', 'owner', 'territory']
+    raw_id_fields = ['account', 'contact', 'owner', 'territory', 'lead']
     filter_horizontal = ['tags']
     
     fieldsets = (
@@ -43,7 +49,7 @@ class DealAdmin(admin.ModelAdmin):
             'fields': ('owner', 'territory')
         }),
         ('Additional Information', {
-            'fields': ('priority', 'source', 'competitor', 'next_step', 'notes')
+            'fields': ('priority', 'source', 'competitor', 'next_step', 'notes', 'ordering')
         }),
         ('Metadata', {
             'fields': ('tags', 'metadata', 'is_active'),

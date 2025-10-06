@@ -2,8 +2,10 @@
 from django.contrib import admin
 from .models import (
     Campaign, EmailTemplate, EmailCampaign, LeadScore,
-    MarketingList, MarketingListMember, MarketingEvent, MarketingAnalytics
+    MarketingList, MarketingListContact, EmailActivity
 )
+
+# TODO: Add MarketingEvent, MarketingAnalytics models
 
 @admin.register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
@@ -154,80 +156,80 @@ class MarketingListAdmin(admin.ModelAdmin):
         })
     )
 
-@admin.register(MarketingListMember)
-class MarketingListMemberAdmin(admin.ModelAdmin):
-    list_display = ['contact', 'list', 'subscribed_at', 'unsubscribed_at', 'is_active']
-    list_filter = ['is_active', 'subscribed_at', 'unsubscribed_at']
-    search_fields = ['contact__first_name', 'contact__last_name', 'contact__email', 'list__name']
-    readonly_fields = ['subscribed_at', 'created_at', 'updated_at']
-    fieldsets = (
-        ('Membership', {
-            'fields': ('list', 'contact')
-        }),
-        ('Timeline', {
-            'fields': ('subscribed_at', 'unsubscribed_at')
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-@admin.register(MarketingEvent)
-class MarketingEventAdmin(admin.ModelAdmin):
-    list_display = ['event_name', 'event_type', 'contact', 'event_date', 'created_by']
-    list_filter = ['event_type', 'event_date', 'created_at']
-    search_fields = ['event_name', 'description', 'contact__first_name', 'contact__last_name', 'contact__email']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Event Information', {
-            'fields': ('event_type', 'event_name', 'description', 'event_date')
-        }),
-        ('Related Objects', {
-            'fields': ('contact', 'campaign', 'email_campaign')
-        }),
-        ('Event Data', {
-            'fields': ('event_data',)
-        }),
-        ('Assignment', {
-            'fields': ('created_by',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-@admin.register(MarketingAnalytics)
-class MarketingAnalyticsAdmin(admin.ModelAdmin):
-    list_display = ['name', 'start_date', 'end_date', 'total_campaigns', 'active_campaigns', 'is_active']
-    list_filter = ['is_active', 'start_date', 'end_date', 'created_at']
-    search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'description', 'start_date', 'end_date')
-        }),
-        ('Campaign Metrics', {
-            'fields': ('total_campaigns', 'active_campaigns')
-        }),
-        ('Email Metrics', {
-            'fields': ('total_emails_sent', 'total_emails_delivered', 'total_emails_opened', 'total_clicks')
-        }),
-        ('Conversion Metrics', {
-            'fields': ('total_conversions', 'total_unsubscribes', 'total_bounces')
-        }),
-        ('Rate Metrics', {
-            'fields': ('overall_open_rate', 'overall_click_rate', 'overall_bounce_rate', 'overall_conversion_rate')
-        }),
-        ('Additional', {
-            'fields': ('metadata', 'is_active')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+# @admin.register(MarketingListMember)
+# class MarketingListMemberAdmin(admin.ModelAdmin):
+#     list_display = ['contact', 'list', 'subscribed_at', 'unsubscribed_at', 'is_active']
+#     list_filter = ['is_active', 'subscribed_at', 'unsubscribed_at']
+#     search_fields = ['contact__first_name', 'contact__last_name', 'contact__email', 'list__name']
+#     readonly_fields = ['subscribed_at', 'created_at', 'updated_at']
+#     fieldsets = (
+#         ('Membership', {
+#             'fields': ('list', 'contact')
+#         }),
+#         ('Timeline', {
+#             'fields': ('subscribed_at', 'unsubscribed_at')
+#         }),
+#         ('Status', {
+#             'fields': ('is_active',)
+#         }),
+#         ('Timestamps', {
+#             'fields': ('created_at', 'updated_at'),
+#             'classes': ('collapse',)
+#         })
+#     )
+# 
+# @admin.register(MarketingEvent)
+# class MarketingEventAdmin(admin.ModelAdmin):
+#     list_display = ['event_name', 'event_type', 'contact', 'event_date', 'created_by']
+#     list_filter = ['event_type', 'event_date', 'created_at']
+#     search_fields = ['event_name', 'description', 'contact__first_name', 'contact__last_name', 'contact__email']
+#     readonly_fields = ['created_at', 'updated_at']
+#     fieldsets = (
+#         ('Event Information', {
+#             'fields': ('event_type', 'event_name', 'description', 'event_date')
+#         }),
+#         ('Related Objects', {
+#             'fields': ('contact', 'campaign', 'email_campaign')
+#         }),
+#         ('Event Data', {
+#             'fields': ('event_data',)
+#         }),
+#         ('Assignment', {
+#             'fields': ('created_by',)
+#         }),
+#         ('Timestamps', {
+#             'fields': ('created_at', 'updated_at'),
+#             'classes': ('collapse',)
+#         })
+#     )
+# 
+# @admin.register(MarketingAnalytics)
+# class MarketingAnalyticsAdmin(admin.ModelAdmin):
+#     list_display = ['name', 'start_date', 'end_date', 'total_campaigns', 'active_campaigns', 'is_active']
+#     list_filter = ['is_active', 'start_date', 'end_date', 'created_at']
+#     search_fields = ['name', 'description']
+#     readonly_fields = ['created_at', 'updated_at']
+#     fieldsets = (
+#         ('Basic Information', {
+#             'fields': ('name', 'description', 'start_date', 'end_date')
+#         }),
+#         ('Campaign Metrics', {
+#             'fields': ('total_campaigns', 'active_campaigns')
+#         }),
+#         ('Email Metrics', {
+#             'fields': ('total_emails_sent', 'total_emails_delivered', 'total_emails_opened', 'total_clicks')
+#         }),
+#         ('Conversion Metrics', {
+#             'fields': ('total_conversions', 'total_unsubscribes', 'total_bounces')
+#         }),
+#         ('Rate Metrics', {
+#             'fields': ('overall_open_rate', 'overall_click_rate', 'overall_bounce_rate', 'overall_conversion_rate')
+#         }),
+#         ('Additional', {
+#             'fields': ('metadata', 'is_active')
+#         }),
+#         ('Timestamps', {
+#             'fields': ('created_at', 'updated_at'),
+#             'classes': ('collapse',)
+#         })
+#     )
