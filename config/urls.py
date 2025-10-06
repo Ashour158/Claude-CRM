@@ -21,6 +21,9 @@ urlpatterns = [
     # API URLs - Activities
     path('api/activities/', include('activities.urls')),
     
+    # API URLs - Timeline (new Phase 2)
+    path('api/v1/activities/', include('crm.activities.urls')),
+    
     # API URLs - Deals
     path('api/deals/', include('deals.urls')),
     

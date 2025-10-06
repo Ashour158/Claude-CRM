@@ -1,0 +1,4 @@
+# crm/activities/models/__init__.py
+from .activity import TimelineEvent, Activity
+
+__all__ = ['TimelineEvent', 'Activity']

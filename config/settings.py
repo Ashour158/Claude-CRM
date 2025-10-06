@@ -37,6 +37,12 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'core',
     'crm',
+    'crm.accounts',
+    'crm.contacts',
+    'crm.leads',
+    'crm.activities',
+    'crm.custom_fields',
+    'crm.permissions',
     'territories',
     'activities',
     'deals',
