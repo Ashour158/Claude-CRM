@@ -8,6 +8,87 @@ import uuid
 
 User = get_user_model()
 
+class TimelineEvent(CompanyIsolatedModel):
+    """
+    Timeline events for tracking history across all entities
+    """
+    EVENT_TYPES = [
+        ('created', 'Created'),
+        ('updated', 'Updated'),
+        ('deleted', 'Deleted'),
+        ('status_changed', 'Status Changed'),
+        ('assigned', 'Assigned'),
+        ('comment_added', 'Comment Added'),
+        ('email_sent', 'Email Sent'),
+        ('call_logged', 'Call Logged'),
+        ('meeting_scheduled', 'Meeting Scheduled'),
+        ('note_added', 'Note Added'),
+        ('file_attached', 'File Attached'),
+        ('converted', 'Converted'),
+        ('other', 'Other'),
+    ]
+    
+    # Event Information
+    event_type = models.CharField(
+        max_length=50,
+        choices=EVENT_TYPES,
+        help_text="Type of timeline event"
+    )
+    title = models.CharField(max_length=255, help_text="Event title")
+    description = models.TextField(blank=True, help_text="Event description")
+    
+    # Event Data (JSON for flexibility)
+    data = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional event data"
+    )
+    
+    # Related Entity (Generic Foreign Key)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        help_text="Type of related entity"
+    )
+    object_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="ID of the related entity"
+    )
+    content_object = GenericForeignKey('content_type', 'object_id')
+    
+    # User who triggered the event
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='timeline_events',
+        help_text="User who triggered this event"
+    )
+    
+    # Additional metadata
+    is_system_event = models.BooleanField(
+        default=False,
+        help_text="Is this a system-generated event?"
+    )
+    metadata = models.JSONField(default=dict, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['company', 'event_type']),
+            models.Index(fields=['company', 'user']),
+            models.Index(fields=['company', '-created_at']),
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_event_type_display()} - {self.title}"
+
+
 class Activity(CompanyIsolatedModel):
     """
     General activities (calls, emails, meetings, etc.) related to any entity

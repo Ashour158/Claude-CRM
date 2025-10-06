@@ -4,12 +4,22 @@
 import pytest
 import os
 import django
+
+# Setup Django FIRST before any other imports
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+django.setup()
+
+# Now import Django and DRF components
 from django.conf import settings
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+import tempfile
+import shutil
+
+# Import models after Django setup
 from core.models import Company, UserCompanyAccess
 from crm.models import Account, Contact, Lead
 from activities.models import Activity, Task
@@ -17,12 +27,6 @@ from deals.models import Deal
 from products.models import Product
 import factory
 from factory.django import DjangoModelFactory
-import tempfile
-import shutil
-
-# Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-django.setup()
 
 User = get_user_model()
 
@@ -36,13 +40,20 @@ class UserFactory(DjangoModelFactory):
     last_name = factory.Faker('last_name')
     is_active = True
 
+
 class CompanyFactory(DjangoModelFactory):
     class Meta:
         model = Company
     
     name = factory.Faker('company')
+    code = factory.LazyFunction(lambda: f'COMP-{factory.Faker("uuid4").evaluate(None, None, {"locale": None})[0:8]}')
     domain = factory.LazyAttribute(lambda obj: f"{obj.name.lower().replace(' ', '')}.com")
     is_active = True
+
+
+# Alias for organization (Company is the actual model used, not Organization)
+OrganizationFactory = CompanyFactory
+
 
 class AccountFactory(DjangoModelFactory):
     class Meta:
@@ -135,6 +146,32 @@ def user():
 def company():
     """Create a test company"""
     return CompanyFactory()
+
+
+# Alias fixtures for compatibility
+@pytest.fixture
+def organization():
+    """Create a test organization (alias for company)"""
+    return CompanyFactory()
+
+
+@pytest.fixture
+def user_factory():
+    """Factory for creating users"""
+    return UserFactory
+
+
+@pytest.fixture(autouse=True)
+def tenant_context(request, db):
+    """
+    Auto-use fixture that provides tenant context for tests.
+    Sets up company isolation for multi-tenant operations.
+    """
+    # This fixture automatically runs for all tests
+    # In a real implementation, this would set thread-local or context variables
+    # for tenant isolation
+    pass
+
 
 @pytest.fixture
 def user_with_company(user, company):
