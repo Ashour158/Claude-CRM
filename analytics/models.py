@@ -451,3 +451,369 @@ class LeadAnalytics(CompanyIsolatedModel):
     
     def __str__(self):
         return f"{self.user.email} - {self.period_start} to {self.period_end}"
+
+
+# ========================================
+# FACT MODELS FOR ANALYTICS
+# ========================================
+
+class FactDealStageTransition(CompanyIsolatedModel):
+    """
+    Fact table for tracking deal stage transitions and pipeline velocity.
+    Records every stage change to enable pipeline velocity and stage duration analysis.
+    """
+    
+    # Deal reference
+    deal = models.ForeignKey(
+        Deal,
+        on_delete=models.CASCADE,
+        related_name='stage_transitions'
+    )
+    
+    # Stage information
+    from_stage = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Previous stage (empty for new deals)"
+    )
+    to_stage = models.CharField(
+        max_length=50,
+        help_text="Current stage"
+    )
+    
+    # Transition metadata
+    transition_date = models.DateTimeField(
+        db_index=True,
+        help_text="When the transition occurred"
+    )
+    days_in_previous_stage = models.IntegerField(
+        default=0,
+        help_text="Days spent in previous stage"
+    )
+    
+    # Financial snapshot at transition
+    deal_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+    probability = models.IntegerField(
+        default=0,
+        help_text="Deal probability at transition"
+    )
+    weighted_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Amount * probability at transition"
+    )
+    
+    # Ownership
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='deal_stage_transitions'
+    )
+    
+    # Compliance and Region tagging
+    region = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        help_text="Geographic region for compliance"
+    )
+    gdpr_consent = models.BooleanField(
+        default=False,
+        help_text="GDPR consent flag"
+    )
+    data_retention_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when this record should be deleted for compliance"
+    )
+    
+    class Meta:
+        db_table = 'fact_deal_stage_transition'
+        ordering = ['-transition_date']
+        indexes = [
+            models.Index(fields=['transition_date', 'to_stage']),
+            models.Index(fields=['deal', 'transition_date']),
+            models.Index(fields=['region', 'transition_date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.deal.name}: {self.from_stage} -> {self.to_stage}"
+
+
+class FactActivity(CompanyIsolatedModel):
+    """
+    Fact table for activity metrics and volume tracking.
+    Records completed activities for analysis of team productivity and engagement.
+    """
+    
+    # Activity reference (using generic relation for flexibility)
+    activity_type = models.CharField(
+        max_length=20,
+        db_index=True,
+        help_text="Type of activity (call, email, meeting, etc.)"
+    )
+    activity_date = models.DateTimeField(
+        db_index=True,
+        help_text="When the activity occurred"
+    )
+    
+    # Activity details
+    subject = models.CharField(max_length=255, blank=True)
+    duration_minutes = models.PositiveIntegerField(
+        default=0,
+        help_text="Activity duration"
+    )
+    status = models.CharField(
+        max_length=20,
+        help_text="Activity status"
+    )
+    outcome = models.TextField(
+        blank=True,
+        help_text="Activity outcome or notes"
+    )
+    
+    # Related entities
+    related_entity_type = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Type of related entity (Account, Contact, Deal, Lead)"
+    )
+    related_entity_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="ID of related entity"
+    )
+    
+    # Assignment
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='activity_facts',
+        db_index=True
+    )
+    
+    # Metrics
+    is_completed = models.BooleanField(default=False)
+    is_overdue = models.BooleanField(default=False)
+    completion_date = models.DateTimeField(null=True, blank=True)
+    
+    # Compliance and Region tagging
+    region = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        help_text="Geographic region for compliance"
+    )
+    gdpr_consent = models.BooleanField(
+        default=False,
+        help_text="GDPR consent flag"
+    )
+    data_retention_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when this record should be deleted for compliance"
+    )
+    
+    class Meta:
+        db_table = 'fact_activity'
+        ordering = ['-activity_date']
+        indexes = [
+            models.Index(fields=['activity_date', 'activity_type']),
+            models.Index(fields=['assigned_to', 'activity_date']),
+            models.Index(fields=['region', 'activity_date']),
+            models.Index(fields=['is_completed', 'activity_date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.activity_type} - {self.activity_date.date()}"
+
+
+class FactLeadConversion(CompanyIsolatedModel):
+    """
+    Fact table for lead conversion tracking and funnel analysis.
+    Records lead lifecycle events for conversion rate and funnel analysis.
+    """
+    
+    # Lead reference
+    lead = models.ForeignKey(
+        Lead,
+        on_delete=models.CASCADE,
+        related_name='conversion_facts'
+    )
+    
+    # Conversion event
+    event_type = models.CharField(
+        max_length=50,
+        db_index=True,
+        help_text="Type of conversion event (created, qualified, converted, lost)"
+    )
+    event_date = models.DateTimeField(
+        db_index=True,
+        help_text="When the event occurred"
+    )
+    
+    # Lead details at event time
+    lead_status = models.CharField(max_length=50)
+    lead_source = models.CharField(max_length=100, blank=True)
+    lead_score = models.IntegerField(default=0)
+    
+    # Time-to-conversion metrics
+    days_since_creation = models.IntegerField(
+        default=0,
+        help_text="Days since lead was created"
+    )
+    days_in_previous_status = models.IntegerField(
+        default=0,
+        help_text="Days in previous status"
+    )
+    
+    # Conversion outcome
+    converted_to_account = models.ForeignKey(
+        Account,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fact_conversions'
+    )
+    converted_to_deal = models.ForeignKey(
+        Deal,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='fact_conversions'
+    )
+    conversion_value = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Value of resulting deal/opportunity"
+    )
+    
+    # Ownership
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='lead_conversion_facts',
+        db_index=True
+    )
+    
+    # Compliance and Region tagging
+    region = models.CharField(
+        max_length=100,
+        blank=True,
+        db_index=True,
+        help_text="Geographic region for compliance"
+    )
+    gdpr_consent = models.BooleanField(
+        default=False,
+        help_text="GDPR consent flag"
+    )
+    data_retention_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date when this record should be deleted for compliance"
+    )
+    
+    class Meta:
+        db_table = 'fact_lead_conversion'
+        ordering = ['-event_date']
+        indexes = [
+            models.Index(fields=['event_date', 'event_type']),
+            models.Index(fields=['lead', 'event_date']),
+            models.Index(fields=['region', 'event_date']),
+            models.Index(fields=['owner', 'event_date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.lead} - {self.event_type} on {self.event_date.date()}"
+
+
+class AnalyticsExportJob(CompanyIsolatedModel):
+    """
+    Tracks async export jobs for analytics data with notification support.
+    """
+    
+    EXPORT_TYPES = [
+        ('csv', 'CSV'),
+        ('excel', 'Excel'),
+        ('json', 'JSON'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    # Job details
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    export_type = models.CharField(
+        max_length=20,
+        choices=EXPORT_TYPES,
+        default='csv'
+    )
+    
+    # Data configuration
+    data_source = models.CharField(
+        max_length=100,
+        help_text="Source fact table or analytics view"
+    )
+    filters = models.JSONField(
+        default=dict,
+        help_text="Filter parameters for export"
+    )
+    
+    # Status tracking
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        db_index=True
+    )
+    progress_percent = models.IntegerField(default=0)
+    
+    # Results
+    output_file = models.FileField(
+        upload_to='analytics_exports/',
+        null=True,
+        blank=True
+    )
+    total_records = models.IntegerField(default=0)
+    error_message = models.TextField(blank=True)
+    
+    # Timing
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # Ownership and notification
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='analytics_exports'
+    )
+    notification_sent = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'analytics_export_job'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['owner', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} - {self.status}"

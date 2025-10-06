@@ -15,6 +15,14 @@ router.register(r'activity-analytics', views.ActivityAnalyticsViewSet)
 router.register(r'sales-analytics', views.SalesAnalyticsViewSet)
 router.register(r'lead-analytics', views.LeadAnalyticsViewSet)
 
+# Fact tables for analytics
+router.register(r'fact-deal-stage-transitions', views.FactDealStageTransitionViewSet, basename='fact-deal-stage-transition')
+router.register(r'fact-activities', views.FactActivityViewSet, basename='fact-activity')
+router.register(r'fact-lead-conversions', views.FactLeadConversionViewSet, basename='fact-lead-conversion')
+
+# Export jobs
+router.register(r'export-jobs', views.AnalyticsExportJobViewSet, basename='analytics-export-job')
+
 urlpatterns = [
     path('', include(router.urls)),
 ]

@@ -4,7 +4,9 @@
 from rest_framework import serializers
 from .models import (
     Dashboard, Report, KPI, KPIMeasurement, SalesForecast,
-    ActivityAnalytics, SalesAnalytics, LeadAnalytics
+    ActivityAnalytics, SalesAnalytics, LeadAnalytics,
+    FactDealStageTransition, FactActivity, FactLeadConversion,
+    AnalyticsExportJob
 )
 from core.serializers import UserSerializer
 
@@ -80,3 +82,50 @@ class LeadAnalyticsSerializer(serializers.ModelSerializer):
         model = LeadAnalytics
         fields = '__all__'
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class FactDealStageTransitionSerializer(serializers.ModelSerializer):
+    """Fact deal stage transition serializer"""
+    owner = UserSerializer(read_only=True)
+    deal_name = serializers.CharField(source='deal.name', read_only=True)
+    
+    class Meta:
+        model = FactDealStageTransition
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class FactActivitySerializer(serializers.ModelSerializer):
+    """Fact activity serializer"""
+    assigned_to_name = serializers.CharField(source='assigned_to.get_full_name', read_only=True)
+    
+    class Meta:
+        model = FactActivity
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class FactLeadConversionSerializer(serializers.ModelSerializer):
+    """Fact lead conversion serializer"""
+    owner = UserSerializer(read_only=True)
+    lead_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = FactLeadConversion
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_lead_name(self, obj):
+        return f"{obj.lead.first_name} {obj.lead.last_name}".strip() if obj.lead else ""
+
+
+class AnalyticsExportJobSerializer(serializers.ModelSerializer):
+    """Analytics export job serializer"""
+    owner = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = AnalyticsExportJob
+        fields = '__all__'
+        read_only_fields = ['id', 'created_at', 'updated_at', 'status', 'progress_percent', 
+                          'output_file', 'total_records', 'error_message', 
+                          'started_at', 'completed_at', 'notification_sent']
