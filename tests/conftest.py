@@ -4,12 +4,22 @@
 import pytest
 import os
 import django
+
+# Setup Django FIRST before any other imports
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+django.setup()
+
+# Now import Django and DRF components
 from django.conf import settings
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+import tempfile
+import shutil
+
+# Import models after Django setup
 from core.models import Company, UserCompanyAccess
 from crm.models import Account, Contact, Lead
 from activities.models import Activity, Task
@@ -17,12 +27,6 @@ from deals.models import Deal
 from products.models import Product
 import factory
 from factory.django import DjangoModelFactory
-import tempfile
-import shutil
-
-# Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-django.setup()
 
 User = get_user_model()
 
@@ -42,7 +46,7 @@ class CompanyFactory(DjangoModelFactory):
         model = Company
     
     name = factory.Faker('company')
-    code = factory.Sequence(lambda n: f'COMP{n:04d}')
+    code = factory.LazyFunction(lambda: f'COMP-{factory.Faker("uuid4").evaluate(None, None, {"locale": None})[0:8]}')
     domain = factory.LazyAttribute(lambda obj: f"{obj.name.lower().replace(' ', '')}.com")
     is_active = True
 
