@@ -7,7 +7,7 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
-from .models import User, Company, UserCompanyAccess, UserSession
+from .models import User, Company, UserCompanyAccess, UserSession, SavedListView, CustomFieldValue, TimelineEvent
 
 
 @admin.register(Company)
@@ -177,4 +177,100 @@ class UserSessionAdmin(admin.ModelAdmin):
     
     def has_change_permission(self, request, obj=None):
         """Disable changing sessions manually"""
+        return False
+
+
+@admin.register(SavedListView)
+class SavedListViewAdmin(admin.ModelAdmin):
+    """Saved list view admin interface"""
+    list_display = [
+        'name', 'entity_type', 'organization', 'owner', 'is_private', 
+        'is_active', 'created_at'
+    ]
+    list_filter = ['entity_type', 'is_private', 'is_active', 'created_at']
+    search_fields = ['name', 'organization__name', 'owner__email']
+    readonly_fields = ['created_at', 'updated_at', 'deleted_at']
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'entity_type', 'organization', 'owner')
+        }),
+        ('View Definition', {
+            'fields': ('definition',)
+        }),
+        ('Settings', {
+            'fields': ('is_private', 'is_active')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at', 'deleted_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+
+@admin.register(CustomFieldValue)
+class CustomFieldValueAdmin(admin.ModelAdmin):
+    """Custom field value admin interface"""
+    list_display = [
+        'custom_field_name', 'entity_type', 'entity_id', 'company', 'created_at'
+    ]
+    list_filter = ['entity_type', 'custom_field_name', 'created_at']
+    search_fields = ['custom_field_name', 'value_text', 'value_select']
+    readonly_fields = ['created_at', 'updated_at']
+    
+    fieldsets = (
+        ('Field Information', {
+            'fields': ('custom_field_id', 'custom_field_name', 'company')
+        }),
+        ('Entity Reference', {
+            'fields': ('entity_type', 'entity_id')
+        }),
+        ('Values', {
+            'fields': ('value_text', 'value_number', 'value_date', 
+                      'value_datetime', 'value_boolean', 'value_select')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+
+
+@admin.register(TimelineEvent)
+class TimelineEventAdmin(admin.ModelAdmin):
+    """Timeline event admin interface"""
+    list_display = [
+        'event_type', 'title', 'entity_type', 'entity_id', 'user', 
+        'company', 'created_at'
+    ]
+    list_filter = ['event_type', 'entity_type', 'created_at']
+    search_fields = ['title', 'description', 'user__email']
+    readonly_fields = ['created_at']
+    
+    fieldsets = (
+        ('Event Information', {
+            'fields': ('event_type', 'title', 'description', 'company')
+        }),
+        ('Entity Reference', {
+            'fields': ('entity_type', 'entity_id')
+        }),
+        ('Actor', {
+            'fields': ('user',)
+        }),
+        ('Additional Data', {
+            'fields': ('metadata',),
+            'classes': ('collapse',)
+        }),
+        ('Timestamp', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        })
+    )
+    
+    def has_add_permission(self, request):
+        """Disable adding timeline events manually"""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Disable changing timeline events manually"""
         return False

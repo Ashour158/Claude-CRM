@@ -2,8 +2,10 @@
 from django.contrib import admin
 from sales.models import (
     Quote, QuoteItem, SalesOrder, SalesOrderItem,
-    Invoice, InvoiceItem, Payment
+    Invoice, InvoiceItem
 )
+
+# TODO: Add Payment model and register it
 
 @admin.register(Quote)
 class QuoteAdmin(admin.ModelAdmin):
@@ -161,21 +163,22 @@ class InvoiceItemAdmin(admin.ModelAdmin):
     ordering = ['invoice__invoice_number', 'product__name']
     raw_id_fields = ['invoice', 'product']
 
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = [
-        'payment_number', 'invoice', 'account', 'amount', 'currency',
-        'payment_method', 'status', 'payment_date', 'reference_number'
-    ]
-    list_filter = [
-        'status', 'payment_method', 'currency', 'payment_date', 'company'
-    ]
-    search_fields = [
-        'payment_number', 'invoice__invoice_number', 'account__name', 'reference_number'
-    ]
-    ordering = ['-payment_date']
-    list_editable = ['status']
-    raw_id_fields = ['invoice', 'account', 'created_by']
+# TODO: Add Payment model and admin registration
+# @admin.register(Payment)
+# class PaymentAdmin(admin.ModelAdmin):
+#     list_display = [
+#         'payment_number', 'invoice', 'account', 'amount', 'currency',
+#         'payment_method', 'status', 'payment_date', 'reference_number'
+#     ]
+#     list_filter = [
+#         'status', 'payment_method', 'currency', 'payment_date', 'company'
+#     ]
+#     search_fields = [
+#         'payment_number', 'invoice__invoice_number', 'account__name', 'reference_number'
+#     ]
+#     ordering = ['-payment_date']
+#     list_editable = ['status']
+#     raw_id_fields = ['invoice', 'account', 'created_by']
     
     fieldsets = (
         ('Basic Information', {
