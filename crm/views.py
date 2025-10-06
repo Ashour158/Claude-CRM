@@ -8,15 +8,20 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import Account, Contact, Lead
 from .serializers import AccountSerializer, ContactSerializer, LeadSerializer
+from sharing.mixins import SharingEnforcedViewMixin
 
-class AccountViewSet(viewsets.ModelViewSet):
+class AccountViewSet(SharingEnforcedViewMixin, viewsets.ModelViewSet):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = ['name', 'email', 'phone', 'industry']
-    filterset_fields = ['account_type', 'industry', 'is_active']
+    filterset_fields = ['type', 'industry', 'is_active']
     ordering_fields = ['name', 'created_at', 'updated_at']
     ordering = ['-created_at']
+    
+    # Sharing enforcement configuration
+    sharing_object_type = 'account'
+    sharing_ownership_field = 'owner'
 
     @action(detail=True, methods=['get'])
     def contacts(self, request, pk=None):
@@ -47,7 +52,7 @@ class AccountViewSet(viewsets.ModelViewSet):
         # CSV export logic
         return Response({'message': 'Export functionality not implemented yet'})
 
-class ContactViewSet(viewsets.ModelViewSet):
+class ContactViewSet(SharingEnforcedViewMixin, viewsets.ModelViewSet):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -55,6 +60,10 @@ class ContactViewSet(viewsets.ModelViewSet):
     filterset_fields = ['account', 'owner', 'is_active']
     ordering_fields = ['first_name', 'last_name', 'created_at']
     ordering = ['-created_at']
+    
+    # Sharing enforcement configuration
+    sharing_object_type = 'contact'
+    sharing_ownership_field = 'owner'
 
     @action(detail=True, methods=['get'])
     def activities(self, request, pk=None):
@@ -70,7 +79,7 @@ class ContactViewSet(viewsets.ModelViewSet):
     def export_csv(self, request):
         return Response({'message': 'Export functionality not implemented yet'})
 
-class LeadViewSet(viewsets.ModelViewSet):
+class LeadViewSet(SharingEnforcedViewMixin, viewsets.ModelViewSet):
     queryset = Lead.objects.all()
     serializer_class = LeadSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -78,6 +87,10 @@ class LeadViewSet(viewsets.ModelViewSet):
     filterset_fields = ['status', 'source', 'rating', 'owner']
     ordering_fields = ['first_name', 'last_name', 'created_at']
     ordering = ['-created_at']
+    
+    # Sharing enforcement configuration
+    sharing_object_type = 'lead'
+    sharing_ownership_field = 'owner'
 
     @action(detail=True, methods=['post'])
     def convert(self, request, pk=None):

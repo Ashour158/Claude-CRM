@@ -8,8 +8,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import Deal
 from .serializers import DealSerializer
+from sharing.mixins import SharingEnforcedViewMixin
 
-class DealViewSet(viewsets.ModelViewSet):
+class DealViewSet(SharingEnforcedViewMixin, viewsets.ModelViewSet):
     queryset = Deal.objects.all()
     serializer_class = DealSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -17,6 +18,10 @@ class DealViewSet(viewsets.ModelViewSet):
     filterset_fields = ['stage', 'status', 'owner']
     ordering_fields = ['amount', 'expected_close_date', 'created_at']
     ordering = ['-created_at']
+    
+    # Sharing enforcement configuration
+    sharing_object_type = 'deal'
+    sharing_ownership_field = 'owner'
 
     @action(detail=True, methods=['post'])
     def change_stage(self, request, pk=None):
