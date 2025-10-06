@@ -682,14 +682,14 @@ class FactLeadConversion(CompanyIsolatedModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='converted_from_leads'
+        related_name='fact_conversions'
     )
     converted_to_deal = models.ForeignKey(
         Deal,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='converted_from_leads'
+        related_name='fact_conversions'
     )
     conversion_value = models.DecimalField(
         max_digits=15,
