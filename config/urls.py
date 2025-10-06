@@ -54,6 +54,9 @@ urlpatterns = [
     # API URLs - Workflow (placeholder)
     # path('api/workflow/', include('workflow.urls')),
     
+    # API URLs - Real-time
+    path('api/realtime/', include('realtime.urls')),
+    
     # Health Check
     path('health/', TemplateView.as_view(template_name='health.html')),
     

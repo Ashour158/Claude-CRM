@@ -32,6 +32,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'django_filters',
     'django_extensions',
+    'channels',
 ]
 
 LOCAL_APPS = [
@@ -49,6 +50,7 @@ LOCAL_APPS = [
     'integrations',
     'master_data',
     'workflow',
+    'realtime',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -91,6 +93,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
 # Database with enterprise optimizations
 DATABASES = {
@@ -242,6 +245,25 @@ CACHES = {
         'LOCATION': os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
     }
 }
+
+# Channels Configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.getenv('REDIS_URL', 'redis://localhost:6379/0')],
+        },
+    },
+}
+
+# Real-time Infrastructure Configuration
+EVENT_BUS_BACKEND = os.getenv('EVENT_BUS_BACKEND', 'redis')
+EVENT_BUS_CHANNEL_PREFIX = os.getenv('EVENT_BUS_CHANNEL_PREFIX', 'crm.events')
+DEFAULT_REGION = os.getenv('DEFAULT_REGION', 'us-east-1')
+
+# GDPR Configuration
+GDPR_ENABLED = True
+GDPR_RETENTION_DAYS = int(os.getenv('GDPR_RETENTION_DAYS', '365'))
 
 # Session Configuration
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
