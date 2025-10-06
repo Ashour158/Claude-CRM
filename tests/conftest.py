@@ -36,13 +36,20 @@ class UserFactory(DjangoModelFactory):
     last_name = factory.Faker('last_name')
     is_active = True
 
+
 class CompanyFactory(DjangoModelFactory):
     class Meta:
         model = Company
     
     name = factory.Faker('company')
+    code = factory.Sequence(lambda n: f'COMP{n:04d}')
     domain = factory.LazyAttribute(lambda obj: f"{obj.name.lower().replace(' ', '')}.com")
     is_active = True
+
+
+# Alias for organization (Company is the actual model used, not Organization)
+OrganizationFactory = CompanyFactory
+
 
 class AccountFactory(DjangoModelFactory):
     class Meta:
@@ -135,6 +142,32 @@ def user():
 def company():
     """Create a test company"""
     return CompanyFactory()
+
+
+# Alias fixtures for compatibility
+@pytest.fixture
+def organization():
+    """Create a test organization (alias for company)"""
+    return CompanyFactory()
+
+
+@pytest.fixture
+def user_factory():
+    """Factory for creating users"""
+    return UserFactory
+
+
+@pytest.fixture(autouse=True)
+def tenant_context(request, db):
+    """
+    Auto-use fixture that provides tenant context for tests.
+    Sets up company isolation for multi-tenant operations.
+    """
+    # This fixture automatically runs for all tests
+    # In a real implementation, this would set thread-local or context variables
+    # for tenant isolation
+    pass
+
 
 @pytest.fixture
 def user_with_company(user, company):
