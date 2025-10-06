@@ -248,6 +248,52 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_SECURE = not DEBUG
+
+# Search Configuration
+SEARCH_BACKEND = os.getenv('SEARCH_BACKEND', 'postgres')  # 'postgres' or 'external'
+
+SEARCH_CONFIG = {
+    'backend': {
+        # External search engine configuration (Meilisearch, OpenSearch, Elasticsearch)
+        'engine': os.getenv('SEARCH_ENGINE', 'meilisearch'),  # 'meilisearch', 'opensearch', 'elasticsearch'
+        'host': os.getenv('SEARCH_HOST', 'http://localhost:7700'),
+        'api_key': os.getenv('SEARCH_API_KEY', ''),
+        'index_prefix': os.getenv('SEARCH_INDEX_PREFIX', 'crm_'),
+        'username': os.getenv('SEARCH_USERNAME', ''),
+        'password': os.getenv('SEARCH_PASSWORD', ''),
+    },
+    'scoring': {
+        # Field weights for relevance scoring (higher = more important)
+        'field_weights': {
+            'name': 10.0,
+            'email': 8.0,
+            'phone': 5.0,
+            'company': 7.0,
+            'company_name': 7.0,
+            'title': 6.0,
+            'full_name': 9.0,
+            'description': 3.0,
+            'notes': 2.0,
+        },
+        # Boost factors for different match types
+        'exact_match_boost': 2.0,
+        'prefix_match_boost': 1.5,
+        'recent_record_boost': 1.2,
+        'active_record_boost': 1.1,
+        # Decay settings
+        'distance_decay_factor': 0.9,
+        'recency_decay_days': 90,
+    },
+    'gdpr': {
+        # GDPR and PII/PHI filtering configuration
+        'mask_pii': os.getenv('SEARCH_MASK_PII', 'True').lower() == 'true',
+        'remove_pii': os.getenv('SEARCH_REMOVE_PII', 'False').lower() == 'true',
+        'mask_phi': os.getenv('SEARCH_MASK_PHI', 'True').lower() == 'true',
+        'remove_phi': os.getenv('SEARCH_REMOVE_PHI', 'False').lower() == 'true',
+        'mask_addresses': os.getenv('SEARCH_MASK_ADDRESSES', 'False').lower() == 'true',
+        'allowed_roles': ['admin', 'compliance', 'data_protection_officer'],
+    },
+}
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 

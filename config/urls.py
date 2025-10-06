@@ -30,6 +30,9 @@ urlpatterns = [
     # API URLs - Territories
     path('api/territories/', include('territories.urls')),
     
+    # API URLs - Search
+    path('api/v1/search/', include('core.search.urls')),
+    
     # API URLs - Sales (placeholder)
     # path('api/sales/', include('sales.urls')),
     
