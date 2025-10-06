@@ -165,3 +165,13 @@ class AuditLog(models.Model):
     
     def __str__(self):
         return f"{self.action} - {self.user.email if self.user else 'System'}"
+
+
+# Import SavedListView model
+from core.models_saved_views import SavedListView
+
+__all__ = [
+    'User', 'Company', 'CompanyIsolatedModel', 'UserCompanyAccess',
+    'UserSession', 'AuditLog', 'SavedListView'
+]
+

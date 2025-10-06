@@ -495,3 +495,137 @@ class AuditLog(CompanyIsolatedModel):
     
     def __str__(self):
         return f"{self.action} - {self.object_type} - {self.created_at}"
+
+class CustomFieldValue(CompanyIsolatedModel):
+    """
+    Relational storage for custom field values.
+    This provides an alternative to JSON storage with better query capabilities.
+    """
+    field = models.ForeignKey(
+        CustomField,
+        on_delete=models.CASCADE,
+        related_name='values'
+    )
+    entity_type = models.CharField(max_length=50, db_index=True)
+    object_id = models.CharField(max_length=255, db_index=True)
+    
+    # Multiple value storage fields for different types
+    value_text = models.TextField(blank=True)
+    value_number = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
+    value_date = models.DateField(null=True, blank=True)
+    value_datetime = models.DateTimeField(null=True, blank=True)
+    value_boolean = models.BooleanField(null=True, blank=True)
+    value_json = models.JSONField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'custom_field_values'
+        unique_together = [['field', 'entity_type', 'object_id']]
+        indexes = [
+            models.Index(fields=['entity_type', 'object_id']),
+            models.Index(fields=['field', 'entity_type']),
+        ]
+    
+    def __str__(self):
+        return f"{self.field.name} for {self.entity_type}:{self.object_id}"
+    
+    @property
+    def value(self):
+        """Get the value based on field type."""
+        if self.field.field_type in ['text', 'textarea', 'email', 'url', 'phone']:
+            return self.value_text
+        elif self.field.field_type in ['number', 'decimal', 'currency']:
+            return self.value_number
+        elif self.field.field_type == 'date':
+            return self.value_date
+        elif self.field.field_type == 'datetime':
+            return self.value_datetime
+        elif self.field.field_type == 'checkbox':
+            return self.value_boolean
+        elif self.field.field_type in ['select', 'multiselect', 'json']:
+            return self.value_json
+        return self.value_text
+
+
+class SystemPreference(CompanyIsolatedModel):
+    """System-wide preferences."""
+    key = models.CharField(max_length=255, unique=True)
+    value = models.JSONField()
+    description = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'system_preferences'
+    
+    def __str__(self):
+        return self.key
+
+
+class WorkflowConfiguration(CompanyIsolatedModel):
+    """Workflow automation configuration."""
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    entity_type = models.CharField(max_length=50)
+    trigger_type = models.CharField(max_length=50)
+    conditions = models.JSONField(default=dict)
+    actions = models.JSONField(default=list)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'workflow_configurations'
+    
+    def __str__(self):
+        return self.name
+
+
+class SystemLog(CompanyIsolatedModel):
+    """System activity logs."""
+    log_level = models.CharField(max_length=20)
+    message = models.TextField()
+    module = models.CharField(max_length=100)
+    user = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='system_logs'
+    )
+    metadata = models.JSONField(default=dict)
+    
+    class Meta:
+        db_table = 'system_logs'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.log_level}: {self.message[:50]}"
+
+
+class SystemHealth(models.Model):
+    """System health metrics."""
+    metric_name = models.CharField(max_length=100)
+    metric_value = models.FloatField()
+    status = models.CharField(max_length=20)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.JSONField(default=dict)
+    
+    class Meta:
+        db_table = 'system_health'
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.metric_name}: {self.status}"
+
+
+class DataBackup(CompanyIsolatedModel):
+    """Data backup records."""
+    backup_type = models.CharField(max_length=50)
+    file_path = models.CharField(max_length=500)
+    file_size = models.BigIntegerField()
+    status = models.CharField(max_length=20)
+    started_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'data_backups'
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        return f"{self.backup_type} - {self.started_at}"

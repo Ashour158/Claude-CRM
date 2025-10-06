@@ -481,3 +481,46 @@ class CalendarIntegration(CompanyIsolatedModel):
     
     def __str__(self):
         return f"{self.name} ({self.provider})"
+
+class Integration(CompanyIsolatedModel):
+    """
+    Integration configuration for third-party services.
+    """
+    name = models.CharField(max_length=255)
+    integration_type = models.CharField(
+        max_length=50,
+        choices=[
+            ('email', 'Email'),
+            ('calendar', 'Calendar'),
+            ('crm', 'CRM'),
+            ('marketing', 'Marketing'),
+            ('accounting', 'Accounting'),
+        ]
+    )
+    provider = models.CharField(max_length=100)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('active', 'Active'),
+            ('inactive', 'Inactive'),
+            ('error', 'Error'),
+        ],
+        default='inactive'
+    )
+    is_active = models.BooleanField(default=True)
+    owner = models.ForeignKey(
+        'core.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='owned_integrations'
+    )
+    config = models.JSONField(default=dict)
+    
+    class Meta:
+        db_table = 'integrations'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
