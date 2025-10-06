@@ -37,8 +37,14 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     'core',
     'crm',
+    'crm.accounts',
+    'crm.contacts',
+    'crm.leads',
+    'crm.activities.apps.CrmActivitiesConfig',  # Custom label to avoid conflict
+    'crm.custom_fields',
+    'crm.permissions',
     'territories',
-    'activities',
+    'activities',  # Old activities app
     'deals',
     'products',
     'sales',
