@@ -1,0 +1,3 @@
+"""
+Territories tests.
+"""
