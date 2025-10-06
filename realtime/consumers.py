@@ -357,8 +357,8 @@ class RealtimeConsumer(AsyncWebsocketConsumer):
     @staticmethod
     def _get_timestamp() -> str:
         """Get current timestamp"""
-        from datetime import datetime
-        return datetime.utcnow().isoformat()
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc).isoformat()
     
     @staticmethod
     def _track_metric(metric_name: str, data: Dict[str, Any]):
