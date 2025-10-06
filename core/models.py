@@ -151,7 +151,7 @@ class AuditLog(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     action = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='core_audit_logs')
     company = models.ForeignKey(Company, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
     object_type = models.CharField(max_length=100, blank=True)
     object_id = models.CharField(max_length=100, blank=True)
