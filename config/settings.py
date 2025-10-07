@@ -58,6 +58,10 @@ LOCAL_APPS = [
     'marketplace',
     'ai_scoring',
     'mobile',
+    # Enterprise Parity Features
+    'data_import',
+    'api_versioning',
+    'audit',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
