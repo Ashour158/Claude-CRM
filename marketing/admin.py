@@ -2,7 +2,7 @@
 from django.contrib import admin
 from .models import (
     Campaign, EmailTemplate, EmailCampaign, LeadScore,
-    MarketingList, MarketingListMember, MarketingEvent, MarketingAnalytics
+    MarketingList, MarketingListContact, MarketingEvent, MarketingAnalytics
 )
 
 @admin.register(Campaign)
@@ -154,8 +154,8 @@ class MarketingListAdmin(admin.ModelAdmin):
         })
     )
 
-@admin.register(MarketingListMember)
-class MarketingListMemberAdmin(admin.ModelAdmin):
+@admin.register(MarketingListContact)
+class MarketingListContactAdmin(admin.ModelAdmin):
     list_display = ['contact', 'list', 'subscribed_at', 'unsubscribed_at', 'is_active']
     list_filter = ['is_active', 'subscribed_at', 'unsubscribed_at']
     search_fields = ['contact__first_name', 'contact__last_name', 'contact__email', 'list__name']

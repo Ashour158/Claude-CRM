@@ -2,7 +2,7 @@
 from django.contrib import admin
 from sales.models import (
     Quote, QuoteItem, SalesOrder, SalesOrderItem,
-    Invoice, InvoiceItem, Payment
+    Invoice, InvoiceItem
 )
 
 @admin.register(Quote)
@@ -160,38 +160,3 @@ class InvoiceItemAdmin(admin.ModelAdmin):
     search_fields = ['invoice__invoice_number', 'product__name', 'product__sku']
     ordering = ['invoice__invoice_number', 'product__name']
     raw_id_fields = ['invoice', 'product']
-
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = [
-        'payment_number', 'invoice', 'account', 'amount', 'currency',
-        'payment_method', 'status', 'payment_date', 'reference_number'
-    ]
-    list_filter = [
-        'status', 'payment_method', 'currency', 'payment_date', 'company'
-    ]
-    search_fields = [
-        'payment_number', 'invoice__invoice_number', 'account__name', 'reference_number'
-    ]
-    ordering = ['-payment_date']
-    list_editable = ['status']
-    raw_id_fields = ['invoice', 'account', 'created_by']
-    
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('payment_number', 'amount', 'currency')
-        }),
-        ('Relationships', {
-            'fields': ('invoice', 'account')
-        }),
-        ('Payment Details', {
-            'fields': ('payment_method', 'status', 'payment_date', 'reference_number')
-        }),
-        ('Notes', {
-            'fields': ('notes',)
-        }),
-        ('Metadata', {
-            'fields': ('metadata', 'is_active'),
-            'classes': ('collapse',)
-        })
-    )
