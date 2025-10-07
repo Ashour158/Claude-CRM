@@ -57,6 +57,30 @@ urlpatterns = [
     # API URLs - Sharing
     path('api/sharing/', include('sharing.urls')),
     
+    # API URLs - AI Assistant
+    path('api/ai-assistant/', include('ai_assistant.urls')),
+    
+    # API URLs - Events
+    path('api/events/', include('events.urls')),
+    
+    # API URLs - Simulation
+    path('api/simulation/', include('simulation.urls')),
+    
+    # API URLs - Omnichannel
+    path('api/omnichannel/', include('omnichannel.urls')),
+    
+    # API URLs - Security
+    path('api/security/', include('security.urls')),
+    
+    # API URLs - Marketplace
+    path('api/marketplace/', include('marketplace.urls')),
+    
+    # API URLs - AI Scoring
+    path('api/ai-scoring/', include('ai_scoring.urls')),
+    
+    # API URLs - Mobile
+    path('api/mobile/', include('mobile.urls')),
+    
     # Health Check
     path('health/', TemplateView.as_view(template_name='health.html')),
     
