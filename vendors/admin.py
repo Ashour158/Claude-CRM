@@ -1,8 +1,8 @@
 # vendors/admin.py
 from django.contrib import admin
 from vendors.models import (
-    Vendor, VendorContact, VendorProduct, PurchaseOrder,
-    PurchaseOrderItem, VendorInvoice, VendorPayment
+    Vendor, VendorContact, PurchaseOrder,
+    PurchaseOrderItem, VendorPerformance
 )
 
 @admin.register(Vendor)
@@ -71,22 +71,6 @@ class VendorContactAdmin(admin.ModelAdmin):
     list_editable = ['is_primary']
     raw_id_fields = ['vendor']
 
-@admin.register(VendorProduct)
-class VendorProductAdmin(admin.ModelAdmin):
-    list_display = [
-        'vendor', 'product', 'vendor_sku', 'vendor_price',
-        'currency', 'minimum_order_quantity', 'lead_time_days',
-        'is_preferred', 'is_active'
-    ]
-    list_filter = [
-        'is_preferred', 'is_active', 'currency', 'vendor__company'
-    ]
-    search_fields = [
-        'vendor__name', 'product__name', 'product__sku', 'vendor_sku'
-    ]
-    ordering = ['vendor__name', 'product__name']
-    list_editable = ['is_preferred', 'is_active']
-    raw_id_fields = ['vendor', 'product']
 
 @admin.register(PurchaseOrder)
 class PurchaseOrderAdmin(admin.ModelAdmin):
@@ -150,83 +134,14 @@ class PurchaseOrderItemAdmin(admin.ModelAdmin):
     is_fully_received.boolean = True
     is_fully_received.short_description = 'Fully Received'
 
-@admin.register(VendorInvoice)
-class VendorInvoiceAdmin(admin.ModelAdmin):
+@admin.register(VendorPerformance)
+class VendorPerformanceAdmin(admin.ModelAdmin):
     list_display = [
-        'invoice_number', 'title', 'vendor', 'status', 'total_amount',
-        'currency', 'invoice_date', 'due_date', 'is_overdue', 'owner'
+        'vendor', 'period_start', 'period_end', 'on_time_delivery_rate',
+        'quality_rating', 'total_orders', 'total_spend'
     ]
-    list_filter = [
-        'status', 'currency', 'invoice_date', 'due_date', 'company'
-    ]
-    search_fields = [
-        'invoice_number', 'title', 'description', 'vendor__name'
-    ]
-    ordering = ['-created_at']
-    list_editable = ['status']
-    raw_id_fields = ['vendor', 'purchase_order', 'owner']
-    
-    def is_overdue(self, obj):
-        return obj.is_overdue
-    is_overdue.boolean = True
-    is_overdue.short_description = 'Overdue'
-    
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('invoice_number', 'title', 'description')
-        }),
-        ('Relationships', {
-            'fields': ('vendor', 'purchase_order')
-        }),
-        ('Status and Dates', {
-            'fields': ('status', 'invoice_date', 'due_date', 'received_date', 'paid_date')
-        }),
-        ('Financial Information', {
-            'fields': ('subtotal', 'tax_rate', 'tax_amount', 'discount_percentage', 'discount_amount', 'total_amount', 'currency')
-        }),
-        ('Assignment', {
-            'fields': ('owner',)
-        }),
-        ('Notes', {
-            'fields': ('notes',)
-        }),
-        ('Metadata', {
-            'fields': ('metadata', 'is_active'),
-            'classes': ('collapse',)
-        })
-    )
+    list_filter = ['vendor__company', 'period_start', 'period_end']
+    search_fields = ['vendor__name']
+    ordering = ['-period_end']
+    raw_id_fields = ['vendor']
 
-@admin.register(VendorPayment)
-class VendorPaymentAdmin(admin.ModelAdmin):
-    list_display = [
-        'payment_number', 'vendor', 'invoice', 'amount', 'currency',
-        'payment_method', 'status', 'payment_date', 'reference_number'
-    ]
-    list_filter = [
-        'status', 'payment_method', 'currency', 'payment_date', 'company'
-    ]
-    search_fields = [
-        'payment_number', 'vendor__name', 'invoice__invoice_number', 'reference_number'
-    ]
-    ordering = ['-payment_date']
-    list_editable = ['status']
-    raw_id_fields = ['vendor', 'invoice', 'created_by']
-    
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('payment_number', 'amount', 'currency')
-        }),
-        ('Relationships', {
-            'fields': ('vendor', 'invoice')
-        }),
-        ('Payment Details', {
-            'fields': ('payment_method', 'status', 'payment_date', 'reference_number')
-        }),
-        ('Notes', {
-            'fields': ('notes',)
-        }),
-        ('Metadata', {
-            'fields': ('metadata', 'is_active'),
-            'classes': ('collapse',)
-        })
-    )
