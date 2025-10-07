@@ -57,6 +57,9 @@ urlpatterns = [
     # API URLs - Sharing
     path('api/sharing/', include('sharing.urls')),
     
+    # API URLs - Search
+    path('api/search/', include('search.urls')),
+    
     # Health Check
     path('health/', TemplateView.as_view(template_name='health.html')),
     

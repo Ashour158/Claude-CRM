@@ -591,6 +591,84 @@ GET /api/analytics/dashboards/
 
 ## 🔍 Search
 
+### Advanced Search
+```http
+GET /api/search/advanced/?q={query}&entity_type={type}
+```
+
+**Query Parameters:**
+- `q` (string, required): Search query
+- `entity_type` (string): Comma-separated entity types (accounts, contacts, leads, deals). Default: all
+- `owner` (uuid): Filter by owner ID
+- `status` (string): Filter by status
+- `territory` (uuid): Filter by territory ID
+- `explain` (boolean): Include explainability data (true/false). Default: false
+
+**Response:**
+```json
+{
+    "query": "acme",
+    "expanded_queries": ["acme corp", "acme corporation"],
+    "results": {
+        "accounts": [
+            {
+                "id": "uuid",
+                "name": "Acme Corporation",
+                "type": "customer",
+                "industry": "Technology",
+                "owner": "owner-uuid"
+            }
+        ],
+        "contacts": [
+            {
+                "id": "uuid",
+                "first_name": "John",
+                "last_name": "Doe",
+                "full_name": "John Doe",
+                "email": "john@acme.com",
+                "account": "account-uuid",
+                "owner": "owner-uuid"
+            }
+        ]
+    },
+    "facets": {
+        "accounts": {
+            "owner": [
+                {"value": "owner-uuid", "count": 5}
+            ],
+            "type": [
+                {"value": "customer", "count": 10},
+                {"value": "prospect", "count": 7}
+            ],
+            "industry": [
+                {"value": "Technology", "count": 15}
+            ]
+        }
+    },
+    "total_results": 12,
+    "cache_hit": false,
+    "execution_time_ms": 45,
+    "explanations": {
+        "accounts:uuid": {
+            "result_id": "uuid",
+            "entity_type": "accounts",
+            "scores": {
+                "lexical": 0.8,
+                "personalization": 0.7,
+                "boosting": 0.4
+            },
+            "total_score": 1.9,
+            "matched_fields": [
+                {"field": "name", "term": "acme", "score": 1.0}
+            ],
+            "ranking_factors": [
+                {"factor": "ownership", "boost": 0.4}
+            ]
+        }
+    }
+}
+```
+
 ### Global Search
 ```http
 GET /api/search/?q={query}&entity_type={type}
@@ -624,6 +702,122 @@ GET /api/search/?q={query}&entity_type={type}
         ]
     },
     "total_results": 2
+}
+```
+
+### Relationship Graph Query
+```http
+GET /api/search/graph/?source_type={type}&source_id={id}
+```
+
+**Query Parameters:**
+- `source_type` (string, required): Source entity type (lead, account, contact, deal)
+- `source_id` (uuid, required): Source entity ID
+- `target_type` (string, optional): Target entity type for path queries
+- `depth` (int): Depth for related objects (default: 1, max: 3)
+
+**Response (Related Objects):**
+```json
+{
+    "source_type": "account",
+    "source_id": "uuid",
+    "related_objects": {
+        "contacts": ["contact-uuid-1", "contact-uuid-2"],
+        "deals": ["deal-uuid-1", "deal-uuid-2"],
+        "lead": ["lead-uuid-1"]
+    }
+}
+```
+
+**Response (Path Query):**
+```json
+{
+    "source_type": "lead",
+    "source_id": "uuid",
+    "target_type": "deal",
+    "paths": [
+        [
+            {"type": "lead", "id": "uuid"},
+            {"type": "account", "id": "account-uuid", "relationship": "converted_to", "weight": 1.0},
+            {"type": "deal", "id": "deal-uuid", "relationship": "associated_with", "weight": 1.0}
+        ]
+    ],
+    "path_count": 1
+}
+```
+
+### Track Search Interaction
+```http
+POST /api/search/track/
+```
+
+**Request Body:**
+```json
+{
+    "search_metric_id": "uuid",
+    "result_id": "uuid",
+    "result_rank": 1
+}
+```
+
+**Response:**
+```json
+{
+    "message": "Interaction tracked successfully",
+    "metric_id": "uuid"
+}
+```
+
+### Query Expansion Management
+```http
+GET /api/search/query-expansion/
+POST /api/search/query-expansion/
+```
+
+**POST Request Body:**
+```json
+{
+    "term": "CEO",
+    "expansions": ["Chief Executive Officer", "President"],
+    "term_type": "synonym",
+    "priority": 10,
+    "is_active": true
+}
+```
+
+### Search Metrics
+```http
+GET /api/search/metrics/
+GET /api/search/metrics/summary/
+```
+
+**Metrics Summary Response:**
+```json
+{
+    "total_searches": 1500,
+    "cache_hit_rate": 0.65,
+    "avg_execution_time": 42.5,
+    "popular_queries": [
+        {"query": "acme", "count": 50},
+        {"query": "tech", "count": 35}
+    ],
+    "popular_entity_types": [
+        {"entity_type": "accounts", "count": 800},
+        {"entity_type": "contacts", "count": 500}
+    ]
+}
+```
+
+### Rebuild Relationship Graph
+```http
+POST /api/search/graph/rebuild/
+```
+
+**Response:**
+```json
+{
+    "message": "Relationship graph rebuilt successfully",
+    "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 
