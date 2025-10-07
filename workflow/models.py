@@ -139,13 +139,15 @@ class WorkflowExecution(CompanyIsolatedModel):
         return f"{self.workflow.name} - {self.started_at}"
 
 class ApprovalProcess(CompanyIsolatedModel):
-    """Approval processes for records"""
+    """Multi-step and parallel approval processes with escalation"""
     
     PROCESS_TYPES = [
         ('sequential', 'Sequential Approval'),
         ('parallel', 'Parallel Approval'),
         ('conditional', 'Conditional Approval'),
         ('escalation', 'Escalation Approval'),
+        ('multi_step', 'Multi-Step Approval'),
+        ('hybrid', 'Hybrid (Sequential + Parallel)'),
     ]
     
     STATUS_CHOICES = [
@@ -175,7 +177,40 @@ class ApprovalProcess(CompanyIsolatedModel):
     )
     approvers = models.JSONField(
         default=list,
-        help_text="List of approvers"
+        help_text="List of approvers with step and order info"
+    )
+    
+    # Multi-Step Configuration
+    steps = models.JSONField(
+        default=list,
+        help_text="Approval steps configuration (for multi-step workflows)"
+    )
+    current_step = models.IntegerField(
+        default=0,
+        help_text="Current step in approval process"
+    )
+    require_all_approvers = models.BooleanField(
+        default=True,
+        help_text="For parallel approvals, require all or just majority"
+    )
+    
+    # Escalation Configuration
+    enable_escalation = models.BooleanField(
+        default=False,
+        help_text="Enable automatic escalation"
+    )
+    escalation_after_hours = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Escalate after N hours without response"
+    )
+    escalation_chain = models.JSONField(
+        default=list,
+        help_text="Escalation chain (list of users to escalate to)"
+    )
+    escalation_level = models.IntegerField(
+        default=0,
+        help_text="Current escalation level"
     )
     
     # Status

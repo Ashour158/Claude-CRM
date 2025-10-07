@@ -43,13 +43,14 @@ class Dashboard(CompanyIsolatedModel):
         return self.name
 
 class Report(CompanyIsolatedModel):
-    """Custom reports"""
+    """Custom reports with interactive pivot UI and visualization"""
     
     REPORT_TYPES = [
         ('table', 'Table'),
         ('chart', 'Chart'),
         ('pivot', 'Pivot Table'),
         ('summary', 'Summary'),
+        ('interactive_pivot', 'Interactive Pivot'),
     ]
     
     CHART_TYPES = [
@@ -58,6 +59,8 @@ class Report(CompanyIsolatedModel):
         ('pie', 'Pie Chart'),
         ('area', 'Area Chart'),
         ('scatter', 'Scatter Plot'),
+        ('heatmap', 'Heat Map'),
+        ('gauge', 'Gauge'),
     ]
     
     # Basic Information
@@ -109,7 +112,31 @@ class Report(CompanyIsolatedModel):
         related_name='shared_reports'
     )
     
-    # Scheduling
+    # Pivot Configuration (for interactive pivots)
+    pivot_rows = models.JSONField(
+        default=list,
+        help_text="Pivot row fields"
+    )
+    pivot_columns = models.JSONField(
+        default=list,
+        help_text="Pivot column fields"
+    )
+    pivot_values = models.JSONField(
+        default=list,
+        help_text="Pivot value fields with aggregation functions"
+    )
+    pivot_filters = models.JSONField(
+        default=dict,
+        help_text="Pivot-specific filters"
+    )
+    
+    # Chart Builder Configuration
+    chart_config = models.JSONField(
+        default=dict,
+        help_text="Chart builder configuration (axes, colors, legends)"
+    )
+    
+    # Scheduling & Delivery
     is_scheduled = models.BooleanField(default=False)
     schedule_frequency = models.CharField(
         max_length=20,
@@ -122,6 +149,21 @@ class Report(CompanyIsolatedModel):
         blank=True
     )
     schedule_time = models.TimeField(null=True, blank=True)
+    schedule_recipients = models.JSONField(
+        default=list,
+        help_text="Email recipients for scheduled delivery"
+    )
+    delivery_format = models.CharField(
+        max_length=20,
+        choices=[
+            ('pdf', 'PDF'),
+            ('excel', 'Excel'),
+            ('csv', 'CSV'),
+            ('html', 'HTML'),
+        ],
+        default='pdf',
+        blank=True
+    )
     last_run = models.DateTimeField(null=True, blank=True)
     
     class Meta:
@@ -227,12 +269,14 @@ class KPIMeasurement(CompanyIsolatedModel):
         return f"{self.kpi.name} - {self.period_start} to {self.period_end}"
 
 class SalesForecast(CompanyIsolatedModel):
-    """Sales forecasting data"""
+    """Sales forecasting with weighted pipeline and scenario modeling"""
     
     FORECAST_TYPES = [
         ('pipeline', 'Pipeline Forecast'),
         ('revenue', 'Revenue Forecast'),
         ('deals', 'Deals Forecast'),
+        ('weighted', 'Weighted Pipeline'),
+        ('scenario', 'Scenario Modeling'),
     ]
     
     # Basic Information
@@ -253,11 +297,49 @@ class SalesForecast(CompanyIsolatedModel):
         max_digits=15,
         decimal_places=2
     )
+    weighted_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Weighted forecast based on stage probabilities"
+    )
+    best_case_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Best case scenario amount"
+    )
+    worst_case_amount = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Worst case scenario amount"
+    )
     confidence_level = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=50.00,
         help_text="Confidence level percentage (0-100)"
+    )
+    
+    # Weighting Configuration
+    stage_weights = models.JSONField(
+        default=dict,
+        help_text="Probability weights per deal stage"
+    )
+    
+    # Scenario Modeling
+    scenarios = models.JSONField(
+        default=list,
+        help_text="Multiple forecast scenarios with assumptions"
+    )
+    selected_scenario = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Currently selected scenario"
     )
     
     # Methodology
