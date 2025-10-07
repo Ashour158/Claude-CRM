@@ -11,6 +11,35 @@ import uuid
 
 User = get_user_model()
 
+# Import new analytics modules
+from analytics.metrics_catalog import (
+    MetricDefinition,
+    MetricLineage,
+    MetricComputationDAG
+)
+from analytics.time_series import (
+    TimeSeriesSnapshot,
+    TimeSeriesPipeline,
+    TimeSeriesAggregation
+)
+from analytics.anomaly_detection import (
+    AnomalyDetectionRule,
+    AnomalyDetection,
+    AnomalyAlert
+)
+from analytics.report_scheduling import (
+    ReportSchedule,
+    ReportSnapshot,
+    ReportSnapshotAccess
+)
+from analytics.data_quality import (
+    DataQualityRule,
+    DataQualityCheck,
+    DataQualityAlert,
+    DataQualityAlertNotification,
+    DataQualityDashboard
+)
+
 class Dashboard(CompanyIsolatedModel):
     """User dashboards for analytics"""
     

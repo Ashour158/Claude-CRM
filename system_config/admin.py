@@ -1,189 +1,49 @@
 # system_config/admin.py
 from django.contrib import admin
 from .models import (
-    CustomField, CustomFieldValue, SystemPreference, WorkflowConfiguration,
-    UserPreference, SystemLog, SystemHealth, DataBackup
+    SystemSetting, CustomField, WorkflowRule,
+    NotificationTemplate, UserPreference, Integration, AuditLog
 )
+
+@admin.register(SystemSetting)
+class SystemSettingAdmin(admin.ModelAdmin):
+    list_display = ['key', 'value', 'company', 'is_active']
+    list_filter = ['company', 'is_active']
+    search_fields = ['key', 'value', 'description']
 
 @admin.register(CustomField)
 class CustomFieldAdmin(admin.ModelAdmin):
     list_display = ['name', 'label', 'field_type', 'model_name', 'is_required', 'is_active']
-    list_filter = ['field_type', 'model_name', 'is_required', 'is_active', 'created_at']
-    search_fields = ['name', 'label', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'label', 'field_type', 'description', 'model_name')
-        }),
-        ('Field Configuration', {
-            'fields': ('is_required', 'is_unique', 'default_value', 'options')
-        }),
-        ('Validation', {
-            'fields': ('min_length', 'max_length', 'min_value', 'max_value')
-        }),
-        ('Display', {
-            'fields': ('sequence', 'is_visible', 'help_text')
-        }),
-        ('Assignment', {
-            'fields': ('owner',)
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+    list_filter = ['field_type', 'model_name', 'is_required', 'is_active']
+    search_fields = ['name', 'label']
 
-@admin.register(CustomFieldValue)
-class CustomFieldValueAdmin(admin.ModelAdmin):
-    list_display = ['field', 'object_id', 'value', 'created_at']
-    list_filter = ['field', 'created_at']
-    search_fields = ['value', 'object_id']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Value Information', {
-            'fields': ('field', 'object_id', 'value')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-@admin.register(SystemPreference)
-class SystemPreferenceAdmin(admin.ModelAdmin):
-    list_display = ['key', 'value', 'category', 'data_type', 'is_active']
-    list_filter = ['category', 'data_type', 'is_active', 'created_at']
-    search_fields = ['key', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('key', 'value', 'category', 'description')
-        }),
-        ('Data Type', {
-            'fields': ('data_type',)
-        }),
-        ('Assignment', {
-            'fields': ('owner',)
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
-
-@admin.register(WorkflowConfiguration)
-class WorkflowConfigurationAdmin(admin.ModelAdmin):
-    list_display = ['name', 'workflow_type', 'trigger_model', 'is_active']
-    list_filter = ['workflow_type', 'trigger_model', 'is_active', 'created_at']
+@admin.register(WorkflowRule)
+class WorkflowRuleAdmin(admin.ModelAdmin):
+    list_display = ['name', 'entity_type', 'trigger_type', 'is_active']
+    list_filter = ['entity_type', 'trigger_type', 'is_active']
     search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'description', 'workflow_type')
-        }),
-        ('Configuration', {
-            'fields': ('trigger_model', 'trigger_conditions', 'actions')
-        }),
-        ('Assignment', {
-            'fields': ('owner',)
-        }),
-        ('Status', {
-            'fields': ('is_active',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+
+@admin.register(NotificationTemplate)
+class NotificationTemplateAdmin(admin.ModelAdmin):
+    list_display = ['name', 'template_type', 'is_active']
+    list_filter = ['template_type', 'is_active']
+    search_fields = ['name', 'subject']
 
 @admin.register(UserPreference)
 class UserPreferenceAdmin(admin.ModelAdmin):
-    list_display = ['user', 'key', 'value', 'category']
-    list_filter = ['category', 'created_at']
-    search_fields = ['user__first_name', 'user__last_name', 'key', 'value']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Preference Information', {
-            'fields': ('user', 'key', 'value', 'category')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+    list_display = ['user', 'preference_key', 'company']
+    list_filter = ['company']
+    search_fields = ['user__email', 'preference_key']
 
-@admin.register(SystemLog)
-class SystemLogAdmin(admin.ModelAdmin):
-    list_display = ['level', 'category', 'message', 'user', 'created_at']
-    list_filter = ['level', 'category', 'user', 'created_at']
-    search_fields = ['message', 'user__first_name', 'user__last_name']
+@admin.register(Integration)
+class IntegrationAdmin(admin.ModelAdmin):
+    list_display = ['name', 'integration_type', 'is_active']
+    list_filter = ['integration_type', 'is_active']
+    search_fields = ['name']
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['user', 'action', 'model_name', 'created_at']
+    list_filter = ['action', 'model_name', 'created_at']
+    search_fields = ['user__email', 'action', 'model_name']
     readonly_fields = ['created_at']
-    fieldsets = (
-        ('Log Information', {
-            'fields': ('level', 'category', 'message')
-        }),
-        ('Context', {
-            'fields': ('user', 'object_type', 'object_id')
-        }),
-        ('Additional Data', {
-            'fields': ('metadata', 'ip_address', 'user_agent')
-        }),
-        ('Timestamp', {
-            'fields': ('created_at',)
-        })
-    )
-
-@admin.register(SystemHealth)
-class SystemHealthAdmin(admin.ModelAdmin):
-    list_display = ['component', 'status', 'message', 'response_time', 'created_at']
-    list_filter = ['component', 'status', 'created_at']
-    search_fields = ['message']
-    readonly_fields = ['created_at']
-    fieldsets = (
-        ('Health Information', {
-            'fields': ('component', 'status', 'message')
-        }),
-        ('Metrics', {
-            'fields': ('response_time', 'memory_usage', 'cpu_usage')
-        }),
-        ('Additional Data', {
-            'fields': ('metadata',)
-        }),
-        ('Timestamp', {
-            'fields': ('created_at',)
-        })
-    )
-
-@admin.register(DataBackup)
-class DataBackupAdmin(admin.ModelAdmin):
-    list_display = ['name', 'backup_type', 'status', 'scheduled_at', 'created_by']
-    list_filter = ['backup_type', 'status', 'scheduled_at', 'created_at']
-    search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'description', 'backup_type', 'status')
-        }),
-        ('Schedule', {
-            'fields': ('scheduled_at', 'started_at', 'completed_at')
-        }),
-        ('Backup Details', {
-            'fields': ('file_path', 'file_size')
-        }),
-        ('Assignment', {
-            'fields': ('created_by',)
-        }),
-        ('Additional Data', {
-            'fields': ('metadata',)
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )

@@ -1,40 +1,10 @@
 # integrations/admin.py
 from django.contrib import admin
 from .models import (
-    Integration, EmailIntegration, CalendarIntegration, Webhook, WebhookLog,
-    APICredential, DataSync
+    APICredential, Webhook, WebhookLog, DataSync, DataSyncLog,
+    EmailIntegration, CalendarIntegration
 )
 
-@admin.register(Integration)
-class IntegrationAdmin(admin.ModelAdmin):
-    list_display = ['name', 'integration_type', 'provider', 'status', 'is_active', 'owner']
-    list_filter = ['integration_type', 'provider', 'status', 'is_active', 'created_at']
-    search_fields = ['name', 'description', 'provider']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Basic Information', {
-            'fields': ('name', 'integration_type', 'provider', 'description')
-        }),
-        ('API Configuration', {
-            'fields': ('api_endpoint', 'api_key', 'api_secret', 'webhook_url')
-        }),
-        ('Settings', {
-            'fields': ('settings', 'credentials')
-        }),
-        ('Status', {
-            'fields': ('status', 'is_active')
-        }),
-        ('Assignment', {
-            'fields': ('owner',)
-        }),
-        ('Sync Information', {
-            'fields': ('last_sync', 'sync_frequency')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
 
 @admin.register(EmailIntegration)
 class EmailIntegrationAdmin(admin.ModelAdmin):
