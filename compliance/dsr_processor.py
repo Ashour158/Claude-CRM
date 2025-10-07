@@ -124,9 +124,12 @@ class DSRProcessor:
                 
                 if records.exists():
                     # Store for rollback
-                    rollback_data[entity_type] = list(
-                        records.values()
-                    )
+                    # Use iterator() to avoid loading all records into memory at once
+                    rollback_data[entity_type] = []
+                    for record in records.iterator(chunk_size=2000):
+                        rollback_data[entity_type].append(
+                            {field.name: getattr(record, field.name) for field in record._meta.fields}
+                        )
                     
                     # Delete records
                     count = records.count()
