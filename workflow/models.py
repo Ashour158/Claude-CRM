@@ -398,6 +398,17 @@ class ProcessTemplate(CompanyIsolatedModel):
         help_text="Template settings"
     )
     
+    # Blueprint versioning
+    version = models.CharField(
+        max_length=50,
+        default='1.0.0',
+        help_text="Template version"
+    )
+    graph_spec = models.JSONField(
+        default=dict,
+        help_text="Graph specification for workflow visualization"
+    )
+    
     # Status
     is_active = models.BooleanField(default=True)
     is_public = models.BooleanField(
@@ -423,3 +434,320 @@ class ProcessTemplate(CompanyIsolatedModel):
     
     def __str__(self):
         return self.name
+
+
+class ActionCatalog(CompanyIsolatedModel):
+    """Catalog of workflow actions with metadata"""
+    
+    LATENCY_CLASSES = [
+        ('instant', 'Instant (< 100ms)'),
+        ('fast', 'Fast (< 1s)'),
+        ('medium', 'Medium (1-5s)'),
+        ('slow', 'Slow (5-30s)'),
+        ('very_slow', 'Very Slow (> 30s)'),
+    ]
+    
+    # Basic Information
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    action_type = models.CharField(max_length=100)
+    
+    # Metadata
+    is_idempotent = models.BooleanField(
+        default=False,
+        help_text="Action can be safely retried without side effects"
+    )
+    latency_class = models.CharField(
+        max_length=20,
+        choices=LATENCY_CLASSES,
+        default='medium',
+        help_text="Expected execution latency"
+    )
+    side_effects = models.JSONField(
+        default=list,
+        help_text="List of side effects this action produces"
+    )
+    
+    # Configuration
+    input_schema = models.JSONField(
+        default=dict,
+        help_text="JSON schema for action inputs"
+    )
+    output_schema = models.JSONField(
+        default=dict,
+        help_text="JSON schema for action outputs"
+    )
+    
+    # Execution stats
+    execution_count = models.IntegerField(default=0)
+    avg_execution_time_ms = models.IntegerField(null=True, blank=True)
+    success_rate = models.FloatField(default=1.0)
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    is_global = models.BooleanField(
+        default=False,
+        help_text="Available to all companies"
+    )
+    
+    class Meta:
+        db_table = 'action_catalog'
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
+class WorkflowSuggestion(CompanyIsolatedModel):
+    """AI-generated workflow suggestions based on historical data"""
+    
+    SUGGESTION_SOURCES = [
+        ('historical', 'Historical Mining'),
+        ('llm', 'LLM Auto-Suggest'),
+        ('pattern', 'Pattern Recognition'),
+        ('user', 'User Created'),
+    ]
+    
+    SUGGESTION_STATUS = [
+        ('pending', 'Pending Review'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('implemented', 'Implemented'),
+    ]
+    
+    # Suggestion Details
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    source = models.CharField(
+        max_length=20,
+        choices=SUGGESTION_SOURCES,
+        default='historical'
+    )
+    
+    # Suggested Workflow
+    workflow_template = models.JSONField(
+        default=dict,
+        help_text="Suggested workflow configuration"
+    )
+    confidence_score = models.FloatField(
+        default=0.0,
+        help_text="Confidence score (0-1)"
+    )
+    
+    # Supporting Data
+    supporting_data = models.JSONField(
+        default=dict,
+        help_text="Historical data supporting this suggestion"
+    )
+    pattern_frequency = models.IntegerField(
+        default=0,
+        help_text="How often this pattern occurred"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=SUGGESTION_STATUS,
+        default='pending'
+    )
+    
+    # User interaction
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_suggestions'
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'workflow_suggestion'
+        ordering = ['-confidence_score', '-created_at']
+    
+    def __str__(self):
+        return self.title
+
+
+class WorkflowSimulation(CompanyIsolatedModel):
+    """Workflow simulation/dry-run results"""
+    
+    SIMULATION_STATUS = [
+        ('pending', 'Pending'),
+        ('running', 'Running'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    ]
+    
+    # Simulation Details
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name='simulations'
+    )
+    input_data = models.JSONField(
+        default=dict,
+        help_text="Input data for simulation"
+    )
+    
+    # Status
+    status = models.CharField(
+        max_length=20,
+        choices=SIMULATION_STATUS,
+        default='pending'
+    )
+    
+    # Results
+    execution_path = models.JSONField(
+        default=list,
+        help_text="Simulated execution path"
+    )
+    branch_explorations = models.JSONField(
+        default=list,
+        help_text="All explored branches"
+    )
+    approval_chain = models.JSONField(
+        default=list,
+        help_text="Simulated approval chain"
+    )
+    predicted_duration_ms = models.IntegerField(null=True, blank=True)
+    
+    # Validation
+    validation_errors = models.JSONField(
+        default=list,
+        help_text="Validation errors found during simulation"
+    )
+    warnings = models.JSONField(
+        default=list,
+        help_text="Warnings generated during simulation"
+    )
+    
+    # Timing
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    # User
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='workflow_simulations'
+    )
+    
+    class Meta:
+        db_table = 'workflow_simulation'
+        ordering = ['-started_at']
+    
+    def __str__(self):
+        return f"Simulation of {self.workflow.name} at {self.started_at}"
+
+
+class WorkflowSLA(CompanyIsolatedModel):
+    """SLA definitions and tracking for workflows"""
+    
+    # SLA Configuration
+    workflow = models.ForeignKey(
+        Workflow,
+        on_delete=models.CASCADE,
+        related_name='slas'
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    
+    # SLA Thresholds
+    target_duration_seconds = models.IntegerField(
+        help_text="Target completion time in seconds"
+    )
+    warning_threshold_seconds = models.IntegerField(
+        help_text="Warning threshold in seconds"
+    )
+    critical_threshold_seconds = models.IntegerField(
+        help_text="Critical threshold in seconds"
+    )
+    
+    # SLO Window
+    slo_window_hours = models.IntegerField(
+        default=24,
+        help_text="SLO evaluation window in hours"
+    )
+    slo_target_percentage = models.FloatField(
+        default=99.0,
+        help_text="Target percentage of requests meeting SLA"
+    )
+    
+    # Status
+    is_active = models.BooleanField(default=True)
+    
+    # Statistics
+    total_executions = models.IntegerField(default=0)
+    breached_executions = models.IntegerField(default=0)
+    current_slo_percentage = models.FloatField(default=100.0)
+    
+    class Meta:
+        db_table = 'workflow_sla'
+        ordering = ['workflow', 'name']
+    
+    def __str__(self):
+        return f"{self.workflow.name} - {self.name}"
+
+
+class SLABreach(CompanyIsolatedModel):
+    """SLA breach records and alerts"""
+    
+    SEVERITY_LEVELS = [
+        ('warning', 'Warning'),
+        ('critical', 'Critical'),
+    ]
+    
+    # Breach Details
+    sla = models.ForeignKey(
+        WorkflowSLA,
+        on_delete=models.CASCADE,
+        related_name='breaches'
+    )
+    workflow_execution = models.ForeignKey(
+        WorkflowExecution,
+        on_delete=models.CASCADE,
+        related_name='sla_breaches'
+    )
+    
+    # Metrics
+    severity = models.CharField(
+        max_length=20,
+        choices=SEVERITY_LEVELS
+    )
+    actual_duration_seconds = models.IntegerField()
+    target_duration_seconds = models.IntegerField()
+    breach_margin_seconds = models.IntegerField(
+        help_text="How much the SLA was exceeded"
+    )
+    
+    # Alert Details
+    alert_sent = models.BooleanField(default=False)
+    alert_sent_at = models.DateTimeField(null=True, blank=True)
+    alert_recipients = models.JSONField(
+        default=list,
+        help_text="List of users/emails notified"
+    )
+    
+    # Resolution
+    acknowledged = models.BooleanField(default=False)
+    acknowledged_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acknowledged_breaches'
+    )
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+    resolution_notes = models.TextField(blank=True)
+    
+    # Timing
+    detected_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'sla_breach'
+        ordering = ['-detected_at']
+    
+    def __str__(self):
+        return f"SLA Breach: {self.sla.name} at {self.detected_at}"
