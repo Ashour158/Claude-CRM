@@ -68,7 +68,7 @@ class ImportJobAdmin(admin.ModelAdmin):
 class ImportStagingRecordAdmin(admin.ModelAdmin):
     list_display = ['import_job', 'row_number', 'status', 'is_valid', 'is_duplicate', 'import_action']
     list_filter = ['status', 'is_valid', 'is_duplicate', 'import_action']
-    search_fields = ['row_number', 'entity_id']
+    search_fields = ['row_number', 'imported_entity_id']
     readonly_fields = ['created_at', 'updated_at']
 
 @admin.register(DuplicateRule)
