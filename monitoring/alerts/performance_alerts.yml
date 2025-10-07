@@ -1,0 +1,73 @@
+# Prometheus Alert Rules for Performance Monitoring
+
+groups:
+  - name: performance_alerts
+    interval: 30s
+    rules:
+      # High latency alerts
+      - alert: HighHTTPLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(crm_http_request_duration_seconds_bucket[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          component: web
+        annotations:
+          summary: "High HTTP request latency"
+          description: "P95 latency is {{ $value }}s (threshold: 1s)"
+
+      - alert: CriticalHTTPLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(crm_http_request_duration_seconds_bucket[5m])
+          ) > 3.0
+        for: 2m
+        labels:
+          severity: critical
+          component: web
+        annotations:
+          summary: "Critical HTTP request latency"
+          description: "P95 latency is {{ $value }}s (threshold: 3s)"
+
+      # Database performance alerts
+      - alert: HighDatabaseQueryLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(crm_db_query_duration_seconds_bucket[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High database query latency"
+          description: "P95 DB query latency is {{ $value }}s"
+
+      # Cache performance alerts
+      - alert: LowCacheHitRate
+        expr: |
+          rate(crm_cache_hits_total[5m]) / 
+          (rate(crm_cache_hits_total[5m]) + rate(crm_cache_misses_total[5m])) 
+          < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is below 50%"
+
+      # Workflow performance alerts
+      - alert: HighWorkflowFailureRate
+        expr: |
+          rate(crm_workflow_executions_total{status="failed"}[5m]) / 
+          rate(crm_workflow_executions_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: workflow
+        annotations:
+          summary: "High workflow failure rate"
+          description: "Workflow failure rate is above 10%"
