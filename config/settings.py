@@ -50,6 +50,11 @@ LOCAL_APPS = [
     'master_data',
     'workflow',
     'sharing',
+    # New enterprise modules
+    'data_import',
+    'api_versioning',
+    'marketplace',
+    'audit',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
