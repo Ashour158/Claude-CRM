@@ -62,6 +62,7 @@ LOCAL_APPS = [
     'data_import',
     'api_versioning',
     'audit',
+    'compliance',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

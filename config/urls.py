@@ -85,6 +85,7 @@ urlpatterns = [
     path('api/data-import/', include('data_import.urls')),
     path('api/api-versioning/', include('api_versioning.urls')),
     path('api/audit/', include('audit.urls')),
+    path('api/compliance/', include('compliance.urls')),
     
     # Health Check
     path('health/', TemplateView.as_view(template_name='health.html')),
