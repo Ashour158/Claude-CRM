@@ -36,8 +36,8 @@ urlpatterns = [
     # API URLs - Vendors (placeholder)
     # path('api/vendors/', include('vendors.urls')),
     
-    # API URLs - Analytics (placeholder)
-    # path('api/analytics/', include('analytics.urls')),
+    # API URLs - Analytics
+    path('api/analytics/', include('analytics.urls')),
     
     # API URLs - Marketing (placeholder)
     # path('api/marketing/', include('marketing.urls')),
@@ -45,17 +45,23 @@ urlpatterns = [
     # API URLs - System Config (placeholder)
     # path('api/system-config/', include('system_config.urls')),
     
-    # API URLs - Integrations (placeholder)
-    # path('api/integrations/', include('integrations.urls')),
+    # API URLs - Integrations
+    path('api/integrations/', include('integrations.urls')),
     
     # API URLs - Master Data (placeholder)
     # path('api/master-data/', include('master_data.urls')),
     
-    # API URLs - Workflow (placeholder)
-    # path('api/workflow/', include('workflow.urls')),
+    # API URLs - Workflow
+    path('api/workflow/', include('workflow.urls')),
     
     # API URLs - Sharing
     path('api/sharing/', include('sharing.urls')),
+    
+    # API URLs - Enterprise Features
+    path('api/data-import/', include('data_import.urls')),
+    path('api/api-versioning/', include('api_versioning.urls')),
+    path('api/marketplace/', include('marketplace.urls')),
+    path('api/audit/', include('audit.urls')),
     
     # Health Check
     path('health/', TemplateView.as_view(template_name='health.html')),
