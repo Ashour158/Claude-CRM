@@ -63,3 +63,7 @@ python-dateutil==2.8.2
 pytz==2023.3
 requests==2.31.0
 urllib3==2.1.0
+
+# Compliance & Security
+cryptography==41.0.7
+PyYAML==6.0.1
