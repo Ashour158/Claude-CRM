@@ -268,6 +268,37 @@ npm test
 npm run test:coverage
 ```
 
+## Background Tasks and Periodic Jobs
+
+The CRM system includes several periodic tasks for performance optimization:
+
+- **Precompute Search Facets**: Runs every 5 minutes
+- **Precompute Report Aggregates**: Runs every 10 minutes
+- **Audit Log Maintenance**: Runs daily at 2 AM
+- **Warm Caches**: Runs daily at 3 AM
+
+### Running Tasks Manually
+
+```bash
+# Run all periodic tasks
+python manage.py run_periodic_tasks
+
+# Run a specific task
+python manage.py run_periodic_tasks --task precompute_facets
+```
+
+### Starting Celery Workers
+
+```bash
+# Start worker
+celery -A config worker -l info
+
+# Start beat scheduler
+celery -A config beat -l info
+```
+
+For detailed information, see [RUNNING_PERIODIC_TASKS.md](RUNNING_PERIODIC_TASKS.md).
+
 ## Contributing
 
 1. Fork the repository
