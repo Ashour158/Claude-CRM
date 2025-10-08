@@ -4,6 +4,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -330,6 +331,53 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+
+# Celery task routing configuration
+CELERY_TASK_ROUTES = {
+    'workflow.tasks.*': {
+        'queue': 'workflow_default',
+    },
+    'workflow.execute_step': {
+        'queue': 'workflow_default',
+    },
+    'analytics.precompute_facets': {
+        'queue': 'celery',
+    },
+    'analytics.precompute_aggregates': {
+        'queue': 'celery',
+    },
+    'system_config.audit_maintenance': {
+        'queue': 'celery',
+    },
+    'analytics.warm_caches': {
+        'queue': 'celery',
+    },
+}
+
+# Celery Beat periodic task schedule
+CELERY_BEAT_SCHEDULE = {
+    'precompute-search-facets': {
+        'task': 'analytics.precompute_facets',
+        'schedule': crontab(minute='*/5'),  # Every 5 minutes
+    },
+    'precompute-report-aggregates': {
+        'task': 'analytics.precompute_aggregates',
+        'schedule': crontab(minute='*/10'),  # Every 10 minutes
+    },
+    'audit-log-maintenance': {
+        'task': 'system_config.audit_maintenance',
+        'schedule': crontab(hour=2, minute=0),  # Daily at 2 AM
+    },
+    'warm-caches': {
+        'task': 'analytics.warm_caches',
+        'schedule': crontab(hour=3, minute=0),  # Daily at 3 AM
+    },
+}
+
+# Workflow queues
+WORKFLOW_IO_QUEUE = 'workflow_io'
+WORKFLOW_CPU_QUEUE = 'workflow_cpu'
+WORKFLOW_DEFAULT_QUEUE = 'workflow_default'
 
 # File Upload Settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
