@@ -2,17 +2,31 @@
 # Django Settings Configuration
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-this-in-production')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        # Generate temporary SECRET_KEY for development only
+        import secrets
+        SECRET_KEY = secrets.token_urlsafe(50)
+        print("WARNING: Using temporary SECRET_KEY for development only!")
+        print("Generate a production key with: python -c 'import secrets; print(secrets.token_urlsafe(50))'")
+    else:
+        raise ImproperlyConfigured(
+            "SECRET_KEY environment variable must be set in production. "
+            "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(50))'"
+        )
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 

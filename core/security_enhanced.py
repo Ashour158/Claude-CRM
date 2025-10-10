@@ -59,7 +59,8 @@ class RateLimitMiddleware(MiddlewareMixin):
         self.get_response = get_response
         self.rate_limits = {
             'api': {'limit': 100, 'window': 60},  # 100 requests per minute
-            'auth': {'limit': 10, 'window': 60},  # 10 requests per minute
+            'auth': {'limit': 5, 'window': 60},  # 5 login attempts per minute (stricter)
+            'auth_register': {'limit': 3, 'window': 3600},  # 3 registrations per hour
             'upload': {'limit': 20, 'window': 60},  # 20 requests per minute
             'search': {'limit': 50, 'window': 60},  # 50 requests per minute
         }
@@ -107,7 +108,9 @@ class RateLimitMiddleware(MiddlewareMixin):
     
     def get_endpoint_type(self, path):
         """Determine endpoint type for rate limiting"""
-        if path.startswith('/api/core/auth/'):
+        if path.startswith('/api/core/auth/register'):
+            return 'auth_register'
+        elif path.startswith('/api/core/auth/') or path.startswith('/api/auth/'):
             return 'auth'
         elif path.startswith('/api/') and 'upload' in path:
             return 'upload'
