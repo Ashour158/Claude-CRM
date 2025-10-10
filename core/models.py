@@ -137,6 +137,159 @@ class UserSession(models.Model):
         """Check if session is still valid"""
         return timezone.now() < self.expires_at
 
+class Permission(models.Model):
+    """Custom permissions for fine-grained access control"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100, unique=True)
+    codename = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    module = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'core_permission'
+        ordering = ['module', 'name']
+    
+    def __str__(self):
+        return f"{self.module}: {self.name}"
+
+class Role(models.Model):
+    """Custom roles with permissions"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    permissions = models.ManyToManyField(Permission, related_name='roles', blank=True)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='roles')
+    is_system_role = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_role'
+        unique_together = ('name', 'company')
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.company.name})"
+
+class UserRole(models.Model):
+    """User role assignments with expiration"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_roles')
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name='user_assignments')
+    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='role_assignments_made')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = 'core_user_role'
+        unique_together = ('user', 'role')
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.role.name}"
+    
+    @property
+    def is_expired(self):
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False
+
+class UserActivity(models.Model):
+    """Track user activity for analytics and security"""
+    
+    ACTIVITY_TYPES = [
+        ('login', 'Login'),
+        ('logout', 'Logout'),
+        ('page_view', 'Page View'),
+        ('api_call', 'API Call'),
+        ('create', 'Create'),
+        ('update', 'Update'),
+        ('delete', 'Delete'),
+        ('export', 'Export'),
+        ('import', 'Import'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activities')
+    activity_type = models.CharField(max_length=50, choices=ACTIVITY_TYPES)
+    module = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'core_user_activity'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at']),
+            models.Index(fields=['activity_type', '-created_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.activity_type} - {self.created_at}"
+
+class UserPreference(models.Model):
+    """User preferences and settings"""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
+    theme = models.CharField(max_length=20, default='light', choices=[('light', 'Light'), ('dark', 'Dark')])
+    language = models.CharField(max_length=10, default='en')
+    timezone = models.CharField(max_length=50, default='UTC')
+    date_format = models.CharField(max_length=20, default='YYYY-MM-DD')
+    time_format = models.CharField(max_length=20, default='24h')
+    notifications_enabled = models.BooleanField(default=True)
+    email_notifications = models.BooleanField(default=True)
+    desktop_notifications = models.BooleanField(default=True)
+    custom_settings = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'core_user_preference'
+    
+    def __str__(self):
+        return f"Preferences for {self.user.email}"
+
+class UserInvitation(models.Model):
+    """User invitation system"""
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('expired', 'Expired'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField()
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='invitations')
+    invited_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='sent_invitations')
+    role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True)
+    token = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'core_user_invitation'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Invitation to {self.email} ({self.status})"
+    
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at and self.status == 'pending'
+
 class AuditLog(models.Model):
     """Audit log for tracking important actions"""
     
