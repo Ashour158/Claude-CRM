@@ -129,15 +129,9 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', 'crm_password'),
         'HOST': os.getenv('DB_HOST', 'localhost'),
         'PORT': os.getenv('DB_PORT', '5432'),
-        'OPTIONS': {
-            'options': '-c default_transaction_isolation=serializable',
-            'MAX_CONNS': 20,
-            'MIN_CONNS': 5,
-            'CONN_MAX_AGE': 600,  # 10 minutes
-            'CONN_HEALTH_CHECKS': True,
-        },
-        'CONN_MAX_AGE': 600,
-        'ATOMIC_REQUESTS': True,
+        'CONN_MAX_AGE': 600,  # Connection pooling - 10 minutes
+        'CONN_HEALTH_CHECKS': True,  # Enable connection health checks
+        'ATOMIC_REQUESTS': True,  # Wrap each request in a transaction
     }
 }
 
@@ -374,13 +368,12 @@ if DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
     
-    # Add development-specific apps
-    INSTALLED_APPS += ['django_extensions']
-    
     # Enable Django Debug Toolbar if available
     try:
         import debug_toolbar
-        INSTALLED_APPS += ['debug_toolbar']
-        MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+        if 'debug_toolbar' not in INSTALLED_APPS:
+            INSTALLED_APPS += ['debug_toolbar']
+        if 'debug_toolbar.middleware.DebugToolbarMiddleware' not in MIDDLEWARE:
+            MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
     except ImportError:
         pass
