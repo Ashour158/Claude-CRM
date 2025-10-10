@@ -1,8 +1,8 @@
 # system_config/admin.py
 from django.contrib import admin
 from .models import (
-    CustomField, CustomFieldValue, SystemPreference, WorkflowConfiguration,
-    UserPreference, SystemLog, SystemHealth, DataBackup
+    CustomField, WorkflowRule, NotificationTemplate,
+    UserPreference, SystemSetting, Integration, AuditLog
 )
 
 @admin.register(CustomField)
@@ -36,21 +36,21 @@ class CustomFieldAdmin(admin.ModelAdmin):
         })
     )
 
-@admin.register(CustomFieldValue)
-class CustomFieldValueAdmin(admin.ModelAdmin):
-    list_display = ['field', 'object_id', 'value', 'created_at']
-    list_filter = ['field', 'created_at']
-    search_fields = ['value', 'object_id']
-    readonly_fields = ['created_at', 'updated_at']
-    fieldsets = (
-        ('Value Information', {
-            'fields': ('field', 'object_id', 'value')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
-    )
+# @admin.register(CustomFieldValue)
+# class CustomFieldValueAdmin(admin.ModelAdmin):
+#     list_display = ['field', 'object_id', 'value', 'created_at']
+#     list_filter = ['field', 'created_at']
+#     search_fields = ['value', 'object_id']
+#     readonly_fields = ['created_at', 'updated_at']
+#     fieldsets = (
+#         ('Value Information', {
+#             'fields': ('field', 'object_id', 'value')
+#         }),
+#         ('Timestamps', {
+#             'fields': ('created_at', 'updated_at'),
+#             'classes': ('collapse',)
+#         })
+#     )
 
 @admin.register(SystemPreference)
 class SystemPreferenceAdmin(admin.ModelAdmin):

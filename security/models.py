@@ -3,6 +3,8 @@
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from core.models import CompanyIsolatedModel, User
 import uuid
 import json
@@ -462,7 +464,7 @@ class AuditLog(CompanyIsolatedModel):
     
     # Related Entity (Generic Foreign Key)
     content_type = models.ForeignKey(
-        'django.contrib.contenttypes.models.ContentType',
+        ContentType,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -473,7 +475,7 @@ class AuditLog(CompanyIsolatedModel):
         blank=True,
         help_text="ID of the related entity"
     )
-    content_object = models.GenericForeignKey('content_type', 'object_id')
+    content_object = GenericForeignKey('content_type', 'object_id')
     
     class Meta:
         db_table = 'audit_log'
