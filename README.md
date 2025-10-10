@@ -210,6 +210,10 @@ The system supports multiple companies with complete data isolation:
 
 ## Deployment
 
+### 🎯 **START HERE**: [DEPLOYMENT_DOCS_INDEX.md](DEPLOYMENT_DOCS_INDEX.md)
+
+**Complete deployment documentation index with guides for all scenarios.**
+
 ### 🚀 Quick Start - DigitalOcean Deployment
 
 For a streamlined deployment process to DigitalOcean:
@@ -235,9 +239,13 @@ For a streamlined deployment process to DigitalOcean:
 
 ### 📚 Comprehensive Deployment Guides
 
+- **[DEPLOYMENT_DOCS_INDEX.md](DEPLOYMENT_DOCS_INDEX.md)** - 📖 **Documentation index (START HERE)**
 - **[DIGITALOCEAN_QUICK_START.md](DIGITALOCEAN_QUICK_START.md)** - Quick 5-step deployment guide
 - **[DEPLOYMENT_READINESS.md](DEPLOYMENT_READINESS.md)** - Security checklist and requirements
 - **[STAGING_DEPLOYMENT_GUIDE.md](STAGING_DEPLOYMENT_GUIDE.md)** - Set up staging environment
+- **[DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md)** - Visual workflow diagram
+- **[QUICK_REFERENCE_DEPLOYMENT.md](QUICK_REFERENCE_DEPLOYMENT.md)** - Quick command reference
+- **[DEPLOYMENT_STATUS_REPORT.md](DEPLOYMENT_STATUS_REPORT.md)** - Current deployment status
 - **[DIGITALOCEAN_DEPLOYMENT_STEP_BY_STEP.md](DIGITALOCEAN_DEPLOYMENT_STEP_BY_STEP.md)** - Detailed deployment steps
 - **[SECURITY_FIXES_README.md](SECURITY_FIXES_README.md)** - Security implementation details
 
